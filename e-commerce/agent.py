@@ -1,10 +1,11 @@
 import os 
+os.environ.setdefault("OTEL_SDK_DISABLED", "true")  # Disable OpenTelemetry SDK to suppress NoneType warnings
 import logging
 import asyncio
 from google.adk.agents import LoopAgent, LlmAgent
 from google.adk.sessions import InMemorySessionService
 from google.adk.runners import Runner
-from google.adk.tools import ToolContext, google_search
+from google.adk.tools import google_search
 from google.genai import types
 from dotenv import load_dotenv
 import requests
@@ -14,6 +15,9 @@ load_dotenv()
 
 
 logging.basicConfig(level=logging.INFO)
+logging.getLogger("opentelemetry").setLevel(logging.ERROR)
+logging.getLogger("opentelemetry.sdk").setLevel(logging.ERROR)
+logging.getLogger("opentelemetry.semconv").setLevel(logging.ERROR)
 logging.getLogger("google.adk.runners").setLevel(logging.ERROR)
 logging.getLogger("google.genai.types").setLevel(logging.ERROR)
 APP_NAME = "e-commerce-agent"
@@ -26,59 +30,6 @@ session = session_service.create_session(
     app_name=APP_NAME, user_id=USER_ID, session_id=SESSION_ID
 )
 
-# Define call_vector_search to call the vector search backend.
-def call_vector_search(url,query, rows= None):
-    """Calls the vector search backend fro querying
-    Args: 
-        url (str): The URL of the vector search backend.
-        query (str): The search query.
-        rows (int, optional): The number of results to return. Defaults to None.
-        Returns:
-        dict: the json response from the api"""
-        
-        #Build HTTP header and a payload
-    headers = {'Content-Type': 'application/json'}
-    payload = {
-        "query": query,
-        "rows": rows,
-        "dataset_id": "mercari3m_mm",
-        "use-dense": True,
-        "use-sparse": True,
-        "use_rerank": True,
-        "rrf_alpha": 0.5,
-        
-        
-        }
-    #complete this code 
-    try:
-        if not url:
-            raise ValueError("Vector search URL is required.")
-        resp = requests.post(url, headers=headers, data=json.dumps(payload), timeout=20)
-        resp.raise_for_status()
-        return resp.json()
-    except requests.Timeout:
-        return {"error": "timeout", "message": "Vector search request timed out."}
-    except requests.HTTPError as e:
-        # Try to include server-provided error details
-        try:
-            detail = resp.json()
-        except Exception:
-            detail = resp.text
-        return {"error": "http_error", "status_code": resp.status_code if 'resp' in locals() else None, "detail": detail, "message": str(e)}
-    except Exception as e:
-        return {"error": "unknown_error", "message": str(e)}
-    
-async def vector_search(query: str, tool_context: ToolContext, rows: int = 10) -> str:
-    """Query the product vector search backend and return matched items as a JSON string.
-
-    Parameters:
-      - query: Natural language search query
-      - rows: Number of results to return (default 10)
-    """
-    url = os.getenv("VECTOR_SEARCH_URL")
-    result = call_vector_search(url, query, rows)
-    return json.dumps(result)
- 
 # Configure tools based on available credentials
 ENABLE_WEB_SEARCH = bool(os.getenv("GOOGLE_CSE_ID") and os.getenv("GOOGLE_SEARCH_API_KEY"))
  
@@ -99,10 +50,10 @@ research_agent = LlmAgent(
     tools=research_tools,
 )
  
-# Shop agent finalized to use vector search backend and multi-query expansion
+# Shop agent using only web search
 shop_instruction  = (
     "You are a shop search agent on an e-commerce site with millions of items. "
-    "Use the vector_search tool for precise retrieval. Summarize the top matches for the user."
+    "Use web search to find relevant products and summarize the top matches for the user."
 )
  
 shop_agent = LlmAgent(
@@ -110,7 +61,7 @@ shop_agent = LlmAgent(
     model='gemini-2.0-flash',
     description=("Searches for items based on user queries and returns results."),
     instruction=shop_instruction,
-    tools=[vector_search],
+    tools=research_tools,
 )
  
 # Expose root_agent for ADK loader
