@@ -5,7 +5,7 @@ from dotenv import load_dotenv
 # Load environment variables from a local .env file if present
 load_dotenv()
 
-from youtube_shorts_assistant import load_instruction_from_file
+from .youtube_shorts_assistant import load_instruction_from_file
 
 scriptwriter_agent = LlmAgent(
     name="Scriptwriter",
