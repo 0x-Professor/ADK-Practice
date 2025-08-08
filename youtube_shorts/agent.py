@@ -44,15 +44,15 @@ Output the final script as a single string.""",
 )
 
 youtube_shorts_agent = LlmAgent(
-    name="YouTube Shorts Agent",
+    name="YouTube_Shorts_Agent",
     model='gemini-2.0-flash',
     instruction="""You are an expert in creating engaging YouTube Shorts scripts. Your task is to generate a script based on the provided topic, ensuring it is concise, engaging, and suitable for YouTube Shorts format.""",
     description="you are an expert in creating engaging YouTube Shorts scripts.",
-    sub_agents={
-        "scriptwriter": scriptwriter_agent,
-        "visualizer": visualizer_agent,
-        "formatter": format_agent
-    }
+    sub_agents=[
+        scriptwriter_agent,
+        visualizer_agent,
+        format_agent,
+    ]
 )
 
 root_agent = youtube_shorts_agent
