@@ -42,8 +42,8 @@ Output the final script as a single string.""",
     description="Combines the script and visualization into a final YouTube Shorts script.",
     output_key='formatted_script'
 )
-
-#youtube_shorts_agent = LoopAgent(
+#for LLM agent workflow 
+#youtube_shorts_agent = LlmAgent(
 #    name="YouTube_Shorts_Agent",
 #    model='gemini-2.0-flash',
 #   instruction="""You are an expert in creating engaging YouTube Shorts scripts. Your task is to generate a script based on the provided topic, ensuring it is concise, engaging, and suitable for YouTube Shorts format.""",
@@ -54,7 +54,7 @@ Output the final script as a single string.""",
 #        format_agent,
 #   ]
 #)
-
+#fro LoopAgent workflow
 youtube_shorts_agent = LoopAgent(
     name="YouTube_Shorts_Agent",
     
