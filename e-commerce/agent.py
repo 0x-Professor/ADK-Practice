@@ -40,10 +40,16 @@ ENABLE_WEB_SEARCH = bool(os.getenv("GOOGLE_CSE_ID") and os.getenv("GOOGLE_SEARCH
  
 # Research agent with web and image search capabilities
 research_instruction = (
-    "You are a research agent that can search the web to collect product info, comparisons, and visual references. "
-    "When users ask for products, also search for images (e.g., run google_search with '<query> images'). "
-    "In your response, include an Images section that lists 1–3 representative image links per product using markdown, e.g., ![alt](image_url). "
-    "Prefer direct image URLs or clearly labeled page links if image URLs are unavailable."
+    "You are a senior product research analyst using web search to produce accurate, source-backed findings with visuals. "
+    "Always perform: (1) a general web search for authoritative sources; (2) an image-focused search using queries like '<topic> images'. "
+    "Cross-check facts across at least 2 reputable sources. Cite titles and URLs. Avoid speculation. If uncertain, say so. "
+    "Output format (in this exact order):\n"
+    "1) Tailored Summary: A concise overview for the user’s query and intent.\n"
+    "2) Detailed Findings: Bullet points with key specs, pros/cons, and comparisons.\n"
+    "3) Sources: Bullet list of source titles with full URLs.\n"
+    "4) DirectImageURLs (JSON): Provide a JSON object with 'image_urls' (<=6 direct .jpg/.png/.webp links) and 'page_urls' (<=6 related product/article URLs)." 
+    " If a direct image is unavailable, include the closest page URL instead.\n"
+    "5) Keep any rendered UI returned by tools (renderedContent) intact."
 )
 research_tools = []
 if ENABLE_WEB_SEARCH:
@@ -60,9 +66,11 @@ research_agent = LlmAgent(
  
 # Shop agent using only web search
 shop_instruction  = (
-    "You are a shop search agent on an e-commerce site with millions of items. "
-    "Use web search to find relevant products and summarize the top matches for the user. "
-    "Also include product images: perform an additional image-oriented search (e.g., '<product> images') and attach up to 3 image URLs per product using markdown image tags (![alt](url))."
+    "You are an e-commerce shopping advisor. Return professional, structured results with verified details and imagery. "
+    "Use web search for candidates and a separate image-focused search ('<product> images'). "
+    "Provide: (a) a buyer-focused summary; (b) a ranked list with prices, key specs, notable pros/cons; (c) a Sources list with URLs; "
+    "(d) DirectImageURLs (JSON) containing 'image_urls' and 'page_urls' as separate arrays for UI use; prefer direct image links (.jpg/.jpeg/.png/.webp). "
+    "Do not invent data."
 )
  
 shop_agent = LlmAgent(
@@ -93,19 +101,43 @@ class QueryIn(BaseModel):
     user_id: Optional[str] = "user-1"
     session_id: Optional[str] = "session-001"
 
-def _extract_text_and_html(gen_content: Optional[types.Content]) -> tuple[str, str, list[str]]:
-    """Extract text, rendered HTML, and image URLs parsed from markdown."""
+def _extract_text_and_html(gen_content: Optional[types.Content]) -> tuple[str, str, list[str], list[str]]:
+    """Extract text, rendered HTML, image URLs (direct), and page URLs.
+    - Parses markdown images and generic URLs from text parts.
+    - Attempts to read a JSON block with keys image_urls/page_urls if present.
+    """
     if not gen_content or not getattr(gen_content, "parts", None):
-        return "", "", []
+        return "", "", [], []
     texts: list[str] = []
     htmls: list[str] = []
-    images: list[str] = []
+    image_urls_set: set[str] = set()
+    page_urls_set: set[str] = set()
     for part in gen_content.parts:
         txt = getattr(part, "text", None)
         if isinstance(txt, str) and txt:
             texts.append(txt)
+            # Parse markdown image URLs: ![alt](url)
             for m in re.findall(r"!\[[^\]]*\]\((https?[^\s)]+)\)", txt):
-                images.append(m)
+                image_urls_set.add(m)
+            # Try parse JSON block with image_urls/page_urls
+            for fence in re.findall(r"```json\s*([\s\S]*?)```", txt, flags=re.IGNORECASE):
+                try:
+                    obj = json.loads(fence)
+                    if isinstance(obj, dict):
+                        for u in obj.get("image_urls", []) or []:
+                            if isinstance(u, str):
+                                image_urls_set.add(u)
+                        for u in obj.get("page_urls", []) or []:
+                            if isinstance(u, str):
+                                page_urls_set.add(u)
+                except Exception:
+                    pass
+            # Generic URLs
+            for u in re.findall(r"https?://[^\s)]+", txt):
+                if _is_direct_image_url(u):
+                    image_urls_set.add(u)
+                else:
+                    page_urls_set.add(u)
         for maybe_html_attr in ("rendered_content", "renderedContent", "html"):
             h = getattr(part, maybe_html_attr, None)
             if isinstance(h, str) and h:
@@ -122,7 +154,12 @@ def _extract_text_and_html(gen_content: Optional[types.Content]) -> tuple[str, s
                         htmls.append(base64.b64decode(data).decode("utf-8", errors="ignore"))
                 except Exception:
                     pass
-    return ("\n".join(texts).strip(), "\n".join(htmls).strip(), images)
+    return (
+        "\n".join(texts).strip(),
+        "\n".join(htmls).strip(),
+        list(image_urls_set),
+        list(page_urls_set),
+    )
 
 def _is_direct_image_url(u: str) -> bool:
     u = u.lower()
@@ -163,6 +200,8 @@ async def index():
               #text { white-space: pre-wrap; border: 1px solid #eee; padding: 1rem; margin-top: 1rem; }
               #gallery { display: grid; grid-template-columns: repeat(auto-fill, minmax(160px, 1fr)); gap: 12px; margin-top: 1rem; }
               #gallery img { width: 100%; height: 140px; object-fit: cover; border: 1px solid #ddd; border-radius: 6px; }
+              .url-list { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 12px; }
+              .url-list li { margin: 2px 0; }
             </style>
           </head>
           <body>
@@ -174,8 +213,12 @@ async def index():
             <div id="status"></div>
             <h2>Rendered HTML</h2>
             <div id="html"></div>
-            <h2>Image Gallery (markdown fallback)</h2>
+            <h2>Image Gallery (markdown/JSON fallback)</h2>
             <div id="gallery"></div>
+            <h2>Direct image URLs</h2>
+            <ul id="imageUrls" class="url-list"></ul>
+            <h2>Product/article URLs</h2>
+            <ul id="pageUrls" class="url-list"></ul>
             <h2>Text / Markdown</h2>
             <div id="text"></div>
             <script>
@@ -184,12 +227,16 @@ async def index():
               const status = document.getElementById('status');
               const html = document.getElementById('html');
               const gallery = document.getElementById('gallery');
+              const imageUrls = document.getElementById('imageUrls');
+              const pageUrls = document.getElementById('pageUrls');
               const text = document.getElementById('text');
               f.addEventListener('submit', async (e) => {
                 e.preventDefault();
                 status.textContent = 'Searching...';
                 html.innerHTML = '';
                 gallery.innerHTML = '';
+                imageUrls.innerHTML = '';
+                pageUrls.innerHTML = '';
                 text.textContent = '';
                 try {
                   const resp = await fetch('/query', {
@@ -200,27 +247,39 @@ async def index():
                   const data = await resp.json();
                   status.textContent = data.error ? ('Error: ' + data.error) : 'Done';
                   if (data.html) html.innerHTML = data.html; // Render HTML snippet with images
-                  if (Array.isArray(data.images)) {
-                    for (const u of data.images) {
-                      const proxied = '/img?u=' + encodeURIComponent(u);
-                      const a = document.createElement('a');
-                      a.href = u; a.target = '_blank'; a.rel = 'noopener noreferrer';
-                      const img = document.createElement('img');
-                      img.loading = 'lazy'; img.decoding = 'async'; img.src = proxied; img.alt = 'product image';
-                      a.appendChild(img);
-                      gallery.appendChild(a);
-                    }
-                  }
-                  if (data.text) text.textContent = data.text; // Fallback text/markdown
-                } catch (err) {
-                  status.textContent = 'Request failed';
-                }
-              });
-            </script>
-          </body>
-        </html>
-        """
-    )
+                  const imgs = Array.isArray(data.image_urls) ? data.image_urls : (Array.isArray(data.images) ? data.images : []);
+                  if (imgs.length) {
+                    for (const u of imgs) {
+                       const proxied = '/img?u=' + encodeURIComponent(u);
+                       const a = document.createElement('a');
+                       a.href = u; a.target = '_blank'; a.rel = 'noopener noreferrer';
+                       const img = document.createElement('img');
+                       img.loading = 'lazy'; img.decoding = 'async'; img.src = proxied; img.alt = 'product image';
+                       a.appendChild(img);
+                       gallery.appendChild(a);
+                     }
+                   }
+                  // URL lists
+                  (Array.isArray(data.image_urls) ? data.image_urls : []).forEach(u => {
+                    const li = document.createElement('li');
+                    const a = document.createElement('a'); a.href = u; a.textContent = u; a.target = '_blank'; a.rel = 'noopener';
+                    li.appendChild(a); imageUrls.appendChild(li);
+                  });
+                  (Array.isArray(data.page_urls) ? data.page_urls : []).forEach(u => {
+                    const li = document.createElement('li');
+                    const a = document.createElement('a'); a.href = u; a.textContent = u; a.target = '_blank'; a.rel = 'noopener';
+                    li.appendChild(a); pageUrls.appendChild(li);
+                  });
+                   if (data.text) text.textContent = data.text; // Fallback text/markdown
+                 } catch (err) {
+                   status.textContent = 'Request failed';
+                 }
+               });
+             </script>
+           </body>
+         </html>
+         """
+     )
 
 from google.adk.runners import InMemoryRunner
 
@@ -242,8 +301,8 @@ async def query(body: QueryIn):
     except Exception as e:
         logging.exception("Agent run failed")
         raise HTTPException(status_code=500, detail=str(e))
-    text, html, images = _extract_text_and_html(last_model_event_content)
-    return {"text": text, "html": html, "images": images}
+    text, html, image_urls, page_urls = _extract_text_and_html(last_model_event_content)
+    return {"text": text, "html": html, "images": image_urls, "image_urls": image_urls, "page_urls": page_urls}
 
 
 
