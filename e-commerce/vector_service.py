@@ -4,7 +4,7 @@ import os
 import json
 import requests
 from fastapi import FastAPI, HTTPException
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, ConfigDict
 from typing import Optional
 
 UPSTREAM_VECTOR_URL = os.getenv("UPSTREAM_VECTOR_URL")
@@ -19,8 +19,8 @@ class SearchRequest(BaseModel):
     use_rerank: Optional[bool] = Field(default=True, alias="use_rerank")
     rrf_alpha: Optional[float] = 0.5
 
-    class Config:
-        allow_population_by_field_name = True
+    # Pydantic v2 config
+    model_config = ConfigDict(populate_by_name=True)
 
 
 app = FastAPI(title="Vector Search Proxy")
@@ -56,3 +56,8 @@ def search(req: SearchRequest):
         raise HTTPException(status_code=r.status_code if 'r' in locals() else 502, detail=detail)
     except Exception as e:
         raise HTTPException(status_code=502, detail=str(e))
+
+
+if __name__ == "__main__":
+    import uvicorn
+    uvicorn.run(app, host="127.0.0.1", port=8000)
