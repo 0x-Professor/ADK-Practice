@@ -35,7 +35,10 @@ ENABLE_WEB_SEARCH = bool(os.getenv("GOOGLE_CSE_ID") and os.getenv("GOOGLE_SEARCH
  
 # Research agent with web and image search capabilities
 research_instruction = (
-    "You are a research agent that can search the web and images to collect product info, comparisons, and visual references."
+    "You are a research agent that can search the web to collect product info, comparisons, and visual references. "
+    "When users ask for products, also search for images (e.g., run google_search with '<query> images'). "
+    "In your response, include an Images section that lists 1–3 representative image links per product using markdown, e.g., ![alt](image_url). "
+    "Prefer direct image URLs or clearly labeled page links if image URLs are unavailable."
 )
 research_tools = []
 if ENABLE_WEB_SEARCH:
@@ -53,7 +56,8 @@ research_agent = LlmAgent(
 # Shop agent using only web search
 shop_instruction  = (
     "You are a shop search agent on an e-commerce site with millions of items. "
-    "Use web search to find relevant products and summarize the top matches for the user."
+    "Use web search to find relevant products and summarize the top matches for the user. "
+    "Also include product images: perform an additional image-oriented search (e.g., '<product> images') and attach up to 3 image URLs per product using markdown image tags (![alt](url))."
 )
  
 shop_agent = LlmAgent(
