@@ -4,11 +4,12 @@ import asyncio
 from google.adk.agents import LoopAgent, LlmAgent
 from google.adk.sessions import InMemorySessionService
 from google.adk.runners import Runner
-from google.adk.tools.agent_tool import AgentTool
+from google.adk.tools import ToolContext
 from google.genai import types
 from dotenv import load_dotenv
 import requests
 import json
+from typing import Any
 load_dotenv()
 
 
@@ -67,226 +68,166 @@ def call_vector_search(url,query, rows= None):
     except Exception as e:
         return {"error": "unknown_error", "message": str(e)}
     
-#add another research agent using the google search tool that must be capable of searching the web and also searching for the required image data 
-# from google.adk.tools import google_search  # Replaced with custom web search tool to avoid binding issues
+"""
+Custom function tools per ADK docs. Include optional tool_context: ToolContext to access context/actions when needed.
+"""
 
-class GoogleImageSearchTool(AgentTool):
-    name = "google_image_search"
-    description = (
-        "Search Google Custom Search for images related to a query. Returns a list of image results with URLs."
-    )
-    input_schema = {
-        "type": "object",
-        "properties": {
-            "query": {"type": "string", "description": "Query to search images for"},
-            "num": {"type": "integer", "description": "Number of images to return (1-10)", "minimum": 1, "maximum": 10, "default": 5},
-            "safe": {"type": "string", "enum": ["off", "medium", "high"], "default": "off"}
-        },
-        "required": ["query"]
+async def google_image_search(query: str, num: int = 5, safe: str = "off", tool_context: ToolContext | None = None) -> str:
+    """Search Google Custom Search for images related to a query. Returns JSON string with images."""
+    cse_id = os.getenv("GOOGLE_CSE_ID")
+    api_key = os.getenv("GOOGLE_SEARCH_API_KEY")
+    if not (cse_id and api_key):
+        return json.dumps({"error": "missing_credentials", "message": "GOOGLE_CSE_ID and GOOGLE_SEARCH_API_KEY are required for image search."})
+    params = {
+        "q": query,
+        "cx": cse_id,
+        "key": api_key,
+        "searchType": "image",
+        "num": max(1, min(10, int(num))),
+        "safe": safe,
     }
-
-    async def run(self, query: str, num: int = 5, safe: str = "off"):
-        cse_id = os.getenv("GOOGLE_CSE_ID")
-        api_key = os.getenv("GOOGLE_SEARCH_API_KEY")
-        if not (cse_id and api_key):
-            return json.dumps({"error": "missing_credentials", "message": "GOOGLE_CSE_ID and GOOGLE_SEARCH_API_KEY are required for image search."})
-        params = {
-            "q": query,
-            "cx": cse_id,
-            "key": api_key,
-            "searchType": "image",
-            "num": max(1, min(10, int(num))),
-            "safe": safe,
-        }
-        try:
-            r = requests.get("https://www.googleapis.com/customsearch/v1", params=params, timeout=20)
-            r.raise_for_status()
-            data = r.json()
-            items = data.get("items", [])
-            images = [
-                {
-                    "title": it.get("title"),
-                    "link": it.get("link"),
-                    "contextLink": (it.get("image", {}) or {}).get("contextLink"),
-                    "thumbnailLink": (it.get("image", {}) or {}).get("thumbnailLink"),
-                }
-                for it in items
-            ]
-            return json.dumps({"query": query, "count": len(images), "images": images})
-        except requests.HTTPError as e:
-            return json.dumps({"error": "http_error", "status": r.status_code if 'r' in locals() else None, "detail": r.text if 'r' in locals() else str(e)})
-        except Exception as e:
-            return json.dumps({"error": "unknown_error", "message": str(e)})
-
-class GoogleWebSearchTool(AgentTool):
-    name = "google_web_search"
-    description = (
-        "Search Google Programmable Search Engine for web results related to a query."
-    )
-    input_schema = {
-        "type": "object",
-        "properties": {
-            "query": {"type": "string", "description": "Query to search the web for"},
-            "num": {"type": "integer", "description": "Number of results to return (1-10)", "minimum": 1, "maximum": 10, "default": 5},
-            "safe": {"type": "string", "enum": ["off", "medium", "high"], "default": "off"}
-        },
-        "required": ["query"]
-    }
-
-    async def run(self, query: str, num: int = 5, safe: str = "off"):
-        cse_id = os.getenv("GOOGLE_CSE_ID")
-        api_key = os.getenv("GOOGLE_SEARCH_API_KEY")
-        if not (cse_id and api_key):
-            return json.dumps({"error": "missing_credentials", "message": "GOOGLE_CSE_ID and GOOGLE_SEARCH_API_KEY are required for web search."})
-        params = {
-            "q": query,
-            "cx": cse_id,
-            "key": api_key,
-            "num": max(1, min(10, int(num))),
-            "safe": safe,
-        }
-        try:
-            r = requests.get("https://www.googleapis.com/customsearch/v1", params=params, timeout=20)
-            r.raise_for_status()
-            data = r.json()
-            items = data.get("items", [])
-            results = [
-                {
-                    "title": it.get("title"),
-                    "link": it.get("link"),
-                    "snippet": it.get("snippet"),
-                    "displayLink": it.get("displayLink"),
-                }
-                for it in items
-            ]
-            return json.dumps({"query": query, "count": len(results), "results": results})
-        except requests.HTTPError as e:
-            return json.dumps({"error": "http_error", "status": r.status_code if 'r' in locals() else None, "detail": r.text if 'r' in locals() else str(e)})
-        except Exception as e:
-            return json.dumps({"error": "unknown_error", "message": str(e)})
-
-#finalize the shop agent to use the vector search backend
-class VectorSearchTool(AgentTool):
-    name = "vector_search"
-    description = "Query the product vector search backend and return matched items."
-    input_schema = {
-        "type": "object",
-        "properties": {
-            "query": {"type": "string", "description": "Natural language search query"},
-            "rows": {"type": "integer", "description": "Number of results to return"}
-        },
-        "required": ["query"]
-    }
-
-    @staticmethod
-    def _fetch_image_for_title(title: str) -> str | None:
-        cse_id = os.getenv("GOOGLE_CSE_ID")
-        api_key = os.getenv("GOOGLE_SEARCH_API_KEY")
-        if not (cse_id and api_key and title):
-            return None
-        params = {
-            "q": f"{title} product image",
-            "cx": cse_id,
-            "key": api_key,
-            "searchType": "image",
-            "num": 1,
-            "safe": "off",
-        }
-        try:
-            r = requests.get("https://www.googleapis.com/customsearch/v1", params=params, timeout=10)
-            r.raise_for_status()
-            data = r.json()
-            it = (data.get("items") or [None])[0]
-            return it.get("link") if it else None
-        except Exception:
-            return None
-
-    async def run(self, query: str, rows: int | None = None):
-        url = os.getenv("VECTOR_SEARCH_URL")
-        result = call_vector_search(url, query, rows)
-        # Enrich with real images if missing and CSE creds available
-        try:
-            items = result.get("results") if isinstance(result, dict) else None
-            if isinstance(items, list):
-                for item in items:
-                    # Common keys for title/name
-                    title = item.get("title") or item.get("name") or item.get("product_title") or query
-                    # Common keys that may hold image urls
-                    image_url = item.get("image_url") or item.get("image") or item.get("thumbnail")
-                    if not image_url:
-                        fetched = self._fetch_image_for_title(str(title))
-                        if fetched:
-                            item["image_url"] = fetched
-            return json.dumps(result)
-        except Exception:
-            # If enrichment fails, still return raw result
-            return json.dumps(result)
-
-# add the a tool that will generate 5 queries on the basis of the user query and then call the vector search backend to get the results
-class MultiQueryVectorSearchTool(AgentTool):
-    name = "multi_query_vector_search"
-    description = (
-        "Generate 5 diverse queries based on a user query and execute vector search for each. Returns aggregated results."
-    )
-    input_schema = {
-        "type": "object",
-        "properties": {
-            "user_query": {"type": "string", "description": "Original user query"},
-            "rows": {"type": "integer", "description": "Results per query", "default": 5}
-        },
-        "required": ["user_query"]
-    }
-
-    @staticmethod
-    def _expand_queries(q: str) -> list[str]:
-        q = (q or "").strip()
-        if not q:
-            return []
-        # Simple heuristic expansions to diversify intent
-        base = q
-        return [
-            base,
-            f"{base} best price",
-            f"{base} latest model",
-            f"{base} reviews",
-            f"buy {base} online",
+    try:
+        r = requests.get("https://www.googleapis.com/customsearch/v1", params=params, timeout=20)
+        r.raise_for_status()
+        data = r.json()
+        items = data.get("items", [])
+        images = [
+            {
+                "title": it.get("title"),
+                "link": it.get("link"),
+                "contextLink": (it.get("image", {}) or {}).get("contextLink"),
+                "thumbnailLink": (it.get("image", {}) or {}).get("thumbnailLink"),
+            }
+            for it in items
         ]
-
-    async def run(self, user_query: str, rows: int = 5):
-        url = os.getenv("VECTOR_SEARCH_URL")
-        if not url:
-            return json.dumps({"error": "missing_url", "message": "VECTOR_SEARCH_URL is not set."})
-        queries = self._expand_queries(user_query)
-        aggregated = []
-        seen_ids = set()
-        for q in queries:
-            res = call_vector_search(url, q, rows)
-            # Deduplicate by id/title to make it cleaner for production
-            results = (res or {}).get("results") if isinstance(res, dict) else None
-            if isinstance(results, list):
-                unique = []
-                for it in results:
-                    uid = it.get("id") or it.get("title") or it.get("name")
-                    if uid and uid in seen_ids:
-                        continue
-                    if uid:
-                        seen_ids.add(uid)
-                    unique.append(it)
-                res["results"] = unique
-            aggregated.append({"query": q, "results": res})
-        return json.dumps({"generated_queries": queries, "results_by_query": aggregated})
-
+        return json.dumps({"query": query, "count": len(images), "images": images})
+    except requests.HTTPError as e:
+        return json.dumps({"error": "http_error", "status": r.status_code if 'r' in locals() else None, "detail": r.text if 'r' in locals() else str(e)})
+    except Exception as e:
+        return json.dumps({"error": "unknown_error", "message": str(e)})
+ 
+async def google_web_search(query: str, num: int = 5, safe: str = "off", tool_context: ToolContext | None = None) -> str:
+    """Search Google Programmable Search Engine for web results and return JSON string."""
+    cse_id = os.getenv("GOOGLE_CSE_ID")
+    api_key = os.getenv("GOOGLE_SEARCH_API_KEY")
+    if not (cse_id and api_key):
+        return json.dumps({"error": "missing_credentials", "message": "GOOGLE_CSE_ID and GOOGLE_SEARCH_API_KEY are required for web search."})
+    params = {
+        "q": query,
+        "cx": cse_id,
+        "key": api_key,
+        "num": max(1, min(10, int(num))),
+        "safe": safe,
+    }
+    try:
+        r = requests.get("https://www.googleapis.com/customsearch/v1", params=params, timeout=20)
+        r.raise_for_status()
+        data = r.json()
+        items = data.get("items", [])
+        results = [
+            {
+                "title": it.get("title"),
+                "link": it.get("link"),
+                "snippet": it.get("snippet"),
+                "displayLink": it.get("displayLink"),
+            }
+            for it in items
+        ]
+        return json.dumps({"query": query, "count": len(results), "results": results})
+    except requests.HTTPError as e:
+        return json.dumps({"error": "http_error", "status": r.status_code if 'r' in locals() else None, "detail": r.text if 'r' in locals() else str(e)})
+    except Exception as e:
+        return json.dumps({"error": "unknown_error", "message": str(e)})
+ 
+def _fetch_image_for_title(title: str) -> str | None:
+    cse_id = os.getenv("GOOGLE_CSE_ID")
+    api_key = os.getenv("GOOGLE_SEARCH_API_KEY")
+    if not (cse_id and api_key and title):
+        return None
+    params = {
+        "q": f"{title} product image",
+        "cx": cse_id,
+        "key": api_key,
+        "searchType": "image",
+        "num": 1,
+        "safe": "off",
+    }
+    try:
+        r = requests.get("https://www.googleapis.com/customsearch/v1", params=params, timeout=10)
+        r.raise_for_status()
+        data = r.json()
+        it = (data.get("items") or [None])[0]
+        return it.get("link") if it else None
+    except Exception:
+        return None
+ 
+async def vector_search(query: str, rows: int | None = None, tool_context: ToolContext | None = None) -> str:
+    """Query the product vector search backend and return matched items as JSON string."""
+    url = os.getenv("VECTOR_SEARCH_URL")
+    result = call_vector_search(url, query, rows)
+    # Enrich with real images if missing and CSE creds available
+    try:
+        items = result.get("results") if isinstance(result, dict) else None
+        if isinstance(items, list):
+            for item in items:
+                title = item.get("title") or item.get("name") or item.get("product_title") or query
+                image_url = item.get("image_url") or item.get("image") or item.get("thumbnail")
+                if not image_url:
+                    fetched = _fetch_image_for_title(str(title))
+                    if fetched:
+                        item["image_url"] = fetched
+        return json.dumps(result)
+    except Exception:
+        return json.dumps(result)
+ 
+def _expand_queries(q: str) -> list[str]:
+    q = (q or "").strip()
+    if not q:
+        return []
+    base = q
+    return [
+        base,
+        f"{base} best price",
+        f"{base} latest model",
+        f"{base} reviews",
+        f"buy {base} online",
+    ]
+ 
+async def multi_query_vector_search(user_query: str, rows: int = 5, tool_context: ToolContext | None = None) -> str:
+    """Generate 5 diverse queries, run vector search for each, and aggregate results as JSON string."""
+    url = os.getenv("VECTOR_SEARCH_URL")
+    if not url:
+        return json.dumps({"error": "missing_url", "message": "VECTOR_SEARCH_URL is not set."})
+    queries = _expand_queries(user_query)
+    aggregated = []
+    seen_ids = set()
+    for q in queries:
+        res = call_vector_search(url, q, rows)
+        results = (res or {}).get("results") if isinstance(res, dict) else None
+        if isinstance(results, list):
+            unique = []
+            for it in results:
+                uid = it.get("id") or it.get("title") or it.get("name")
+                if uid and uid in seen_ids:
+                    continue
+                if uid:
+                    seen_ids.add(uid)
+                unique.append(it)
+            res["results"] = unique
+        aggregated.append({"query": q, "results": res})
+    return json.dumps({"generated_queries": queries, "results_by_query": aggregated})
+ 
 # Configure tools based on available credentials
 ENABLE_WEB_SEARCH = bool(os.getenv("GOOGLE_CSE_ID") and os.getenv("GOOGLE_SEARCH_API_KEY"))
-
+ 
 # Research agent with web and image search capabilities
 research_instruction = (
     "You are a research agent that can search the web and images to collect product info, comparisons, and visual references."
 )
 research_tools = []
 if ENABLE_WEB_SEARCH:
-    research_tools = [GoogleWebSearchTool, GoogleImageSearchTool]
-
+    research_tools = [google_web_search, google_image_search]
+ 
 research_agent = LlmAgent(
     name="research_agent",
     model='gemini-2.0-flash',
@@ -294,22 +235,22 @@ research_agent = LlmAgent(
     instruction=research_instruction,
     tools=research_tools,
 )
-
+ 
 # Shop agent finalized to use vector search backend and multi-query expansion
 shop_instruction  = (
     "You are a shop search agent on an e-commerce site with millions of items. "
     "Use the vector_search tool for precise retrieval. When helpful, use multi_query_vector_search "
     "to broaden recall and then summarize the top matches for the user."
 )
-
+ 
 shop_agent = LlmAgent(
     name="shop_agent",
     model='gemini-2.0-flash',
     description=("Searches for items based on user queries and returns results."),
     instruction=shop_instruction,
-    tools=[VectorSearchTool, MultiQueryVectorSearchTool],
+    tools=[vector_search, multi_query_vector_search],
 )
-
+ 
 # Expose root_agent for ADK loader
 e_commerce_root = LoopAgent(
     name="e_commerce_root",
@@ -319,7 +260,7 @@ e_commerce_root = LoopAgent(
         research_agent,
     ],
 )
-
+ 
 root_agent  = e_commerce_root
 
 
