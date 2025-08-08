@@ -261,7 +261,7 @@ research_instruction = (
 )
 research_tools = []
 if ENABLE_WEB_SEARCH:
-    research_tools = [google_search, GoogleImageSearchTool()]
+    research_tools = [google_search, GoogleImageSearchTool]
 
 research_agent = Agent(
     name="research_agent",
@@ -283,7 +283,7 @@ shop_agent = Agent(
     model='gemini-2.0-flash',
     description=("Searches for items based on user queries and returns results."),
     instruction=shop_instruction,
-    tools=[VectorSearchTool(), MultiQueryVectorSearchTool()],
+    tools=[VectorSearchTool, MultiQueryVectorSearchTool],
 )
 
 
