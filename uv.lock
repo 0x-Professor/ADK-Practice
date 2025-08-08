@@ -20,6 +20,7 @@ dependencies = [
     { name = "google-adk" },
     { name = "google-genai" },
     { name = "python-dotenv" },
+    { name = "requests" },
 ]
 
 [package.metadata]
@@ -28,6 +29,7 @@ requires-dist = [
     { name = "google-adk", specifier = ">=1.10.0" },
     { name = "google-genai", specifier = ">=1.29.0" },
     { name = "python-dotenv", specifier = ">=1.0.1" },
+    { name = "requests", specifier = ">=2.31.0" },
 ]
 
 [[package]]
