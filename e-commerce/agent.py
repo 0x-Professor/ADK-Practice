@@ -40,16 +40,17 @@ ENABLE_WEB_SEARCH = bool(os.getenv("GOOGLE_CSE_ID") and os.getenv("GOOGLE_SEARCH
  
 # Research agent with web and image search capabilities
 research_instruction = (
-    "You are a senior product research analyst using web search to produce accurate, source-backed findings with visuals. "
-    "Always perform: (1) a general web search for authoritative sources; (2) an image-focused search using queries like '<topic> images'. "
-    "Cross-check facts across at least 2 reputable sources. Cite titles and URLs. Avoid speculation. If uncertain, say so. "
+    "You are a senior product research analyst. Produce accurate, source-backed findings with structured product links. "
+    "Always: perform a general web search for authoritative sources, cross-check facts across >=2 reputable sources, and cite titles + URLs. "
+    "Do NOT include any image URLs. If users ask for pictures, instead provide the correct product page links from manufacturers/retailers. "
     "Output format (in this exact order):\n"
-    "1) Tailored Summary: A concise overview for the user’s query and intent.\n"
-    "2) Detailed Findings: Bullet points with key specs, pros/cons, and comparisons.\n"
-    "3) Sources: Bullet list of source titles with full URLs.\n"
-    "4) DirectImageURLs (JSON): Provide a JSON object with 'image_urls' (<=6 direct .jpg/.png/.webp links) and 'page_urls' (<=6 related product/article URLs)." 
-    " If a direct image is unavailable, include the closest page URL instead.\n"
-    "5) Keep any rendered UI returned by tools (renderedContent) intact."
+    "1) Tailored Summary: Concise overview addressing the user’s intent.\n"
+    "2) Detailed Findings: Bulleted key specs, pros/cons, and comparisons.\n"
+    "3) Sources: Bulleted list of source titles with full URLs.\n"
+    "4) Products (JSON): A fenced JSON block with key 'products' as an array of objects. Each object MUST include: "
+    "   item_number (or sku if available), title, product_url, seller_or_brand, price (if available), key_specs (array), and any identifiers like upc/ean if present.\n"
+    "5) RelatedURLs (JSON): Optionally include 'page_urls' as an array of relevant non-image links.\n"
+    "Keep any rendered UI returned by tools (renderedContent) intact."
 )
 research_tools = []
 if ENABLE_WEB_SEARCH:
@@ -66,10 +67,10 @@ research_agent = LlmAgent(
  
 # Shop agent using only web search
 shop_instruction  = (
-    "You are an e-commerce shopping advisor. Return professional, structured results with verified details and imagery. "
-    "Use web search for candidates and a separate image-focused search ('<product> images'). "
+    "You are an e-commerce shopping advisor. Return professional, structured results with verified details. "
+    "Do NOT include image URLs. Provide only correct product page links with item numbers/SKUs. "
     "Provide: (a) a buyer-focused summary; (b) a ranked list with prices, key specs, notable pros/cons; (c) a Sources list with URLs; "
-    "(d) DirectImageURLs (JSON) containing 'image_urls' and 'page_urls' as separate arrays for UI use; prefer direct image links (.jpg/.jpeg/.png/.webp). "
+    "(d) Products (JSON) as a fenced block: an array of objects with fields item_number (or sku), title, product_url, seller_or_brand, price, key_specs (array), rating if available. "
     "Do not invent data."
 )
  
@@ -101,32 +102,30 @@ class QueryIn(BaseModel):
     user_id: Optional[str] = "user-1"
     session_id: Optional[str] = "session-001"
 
-def _extract_text_and_html(gen_content: Optional[types.Content]) -> tuple[str, str, list[str], list[str]]:
-    """Extract text, rendered HTML, image URLs (direct), and page URLs.
-    - Parses markdown images and generic URLs from text parts.
-    - Attempts to read a JSON block with keys image_urls/page_urls if present.
+def _extract_text_and_html(gen_content: Optional[types.Content]) -> tuple[str, str, list[dict[str, Any]], list[str]]:
+    """Extract text, rendered HTML, Products array (if provided in JSON), and related page URLs.
+    - Parses fenced JSON blocks for key 'products' and optional 'page_urls'.
+    - Also gathers non-image URLs from text parts into page_urls.
     """
     if not gen_content or not getattr(gen_content, "parts", None):
         return "", "", [], []
     texts: list[str] = []
     htmls: list[str] = []
-    image_urls_set: set[str] = set()
     page_urls_set: set[str] = set()
+    products: list[dict[str, Any]] = []
     for part in gen_content.parts:
         txt = getattr(part, "text", None)
         if isinstance(txt, str) and txt:
             texts.append(txt)
-            # Parse markdown image URLs: ![alt](url)
-            for m in re.findall(r"!\[[^\]]*\]\((https?[^\s)]+)\)", txt):
-                image_urls_set.add(m)
-            # Try parse JSON block with image_urls/page_urls
+            # Try parse JSON fences for products/page_urls
             for fence in re.findall(r"```json\s*([\s\S]*?)```", txt, flags=re.IGNORECASE):
                 try:
                     obj = json.loads(fence)
                     if isinstance(obj, dict):
-                        for u in obj.get("image_urls", []) or []:
-                            if isinstance(u, str):
-                                image_urls_set.add(u)
+                        if isinstance(obj.get("products"), list):
+                            for p in obj.get("products", []) or []:
+                                if isinstance(p, dict):
+                                    products.append(p)
                         for u in obj.get("page_urls", []) or []:
                             if isinstance(u, str):
                                 page_urls_set.add(u)
@@ -134,9 +133,7 @@ def _extract_text_and_html(gen_content: Optional[types.Content]) -> tuple[str, s
                     pass
             # Generic URLs
             for u in re.findall(r"https?://[^\s)]+", txt):
-                if _is_direct_image_url(u):
-                    image_urls_set.add(u)
-                else:
+                if not _is_direct_image_url(u):
                     page_urls_set.add(u)
         for maybe_html_attr in ("rendered_content", "renderedContent", "html"):
             h = getattr(part, maybe_html_attr, None)
@@ -157,7 +154,7 @@ def _extract_text_and_html(gen_content: Optional[types.Content]) -> tuple[str, s
     return (
         "\n".join(texts).strip(),
         "\n".join(htmls).strip(),
-        list(image_urls_set),
+        products,
         list(page_urls_set),
     )
 
@@ -193,84 +190,139 @@ async def index():
         <html>
           <head>
             <meta charset="utf-8" />
-            <title>ADK Search with Images</title>
+            <title>ADK Chat</title>
             <style>
-              body { font-family: system-ui, sans-serif; margin: 1.5rem; }
-              #html { border: 1px solid #ddd; padding: 1rem; margin-top: 1rem; }
-              #text { white-space: pre-wrap; border: 1px solid #eee; padding: 1rem; margin-top: 1rem; }
-              #gallery { display: grid; grid-template-columns: repeat(auto-fill, minmax(160px, 1fr)); gap: 12px; margin-top: 1rem; }
-              #gallery img { width: 100%; height: 140px; object-fit: cover; border: 1px solid #ddd; border-radius: 6px; }
-              .url-list { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 12px; }
-              .url-list li { margin: 2px 0; }
+              :root {
+                --bg: #ffffff;
+                --bubble-user: #e6f0ff;
+                --bubble-assistant: #f6f6f6;
+                --text: #111;
+                --muted: #666;
+              }
+              body { font-family: system-ui, sans-serif; margin: 0; background: var(--bg); color: var(--text); }
+              header { position: sticky; top: 0; background: #fff; border-bottom: 1px solid #eee; padding: 12px 16px; }
+              main { padding: 16px; display: grid; justify-content: center; }
+              #chat { width: min(900px, 100%); display: flex; flex-direction: column; gap: 12px; }
+              .msg { max-width: 80%; padding: 10px 12px; border-radius: 14px; line-height: 1.35; box-shadow: 0 1px 1px rgba(0,0,0,0.05); }
+              .msg.user { align-self: flex-end; background: var(--bubble-user); }
+              .msg.assistant { align-self: flex-start; background: var(--bubble-assistant); }
+              .msg .role { font-size: 12px; color: var(--muted); margin-bottom: 4px; }
+              .msg pre { margin: 6px 0 0; white-space: pre-wrap; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 13px; }
+              .images { display: grid; grid-template-columns: repeat(auto-fill, minmax(160px, 1fr)); gap: 8px; margin-top: 8px; }
+              .images a { display: block; }
+              .images img { width: 100%; height: 140px; object-fit: cover; border-radius: 10px; border: 1px solid #ddd; background: #fff; }
+              form#f { position: sticky; bottom: 0; background: #fff; border-top: 1px solid #eee; padding: 12px 16px; display: grid; grid-template-columns: 1fr auto; gap: 8px; }
+              #q { padding: 10px 12px; border: 1px solid #ddd; border-radius: 10px; font-size: 14px; }
+              button { padding: 10px 16px; border: 1px solid #2b6; background: #2b6; color: #fff; border-radius: 10px; cursor: pointer; }
+              #status { font-size: 12px; color: var(--muted); margin-top: 6px; }
             </style>
           </head>
           <body>
-            <h1>Search Products (with Images)</h1>
+            <header>
+              <strong>ADK E-commerce Assistant</strong>
+              <div id="status"></div>
+            </header>
+            <main>
+              <div id="chat"></div>
+            </main>
             <form id="f">
-              <input id="q" name="q" placeholder="e.g., budget gaming laptops images" style="width: 420px;" />
-              <button>Search</button>
-            </form>
-            <div id="status"></div>
-            <h2>Rendered HTML</h2>
-            <div id="html"></div>
-            <h2>Image Gallery (markdown/JSON fallback)</h2>
-            <div id="gallery"></div>
-            <h2>Direct image URLs</h2>
-            <ul id="imageUrls" class="url-list"></ul>
-            <h2>Product/article URLs</h2>
-            <ul id="pageUrls" class="url-list"></ul>
-            <h2>Text / Markdown</h2>
-            <div id="text"></div>
+-              <input id="q" name="q" placeholder="Ask about products, include 'images' to see visuals" autocomplete="off" />
++              <input id="q" name="q" placeholder="Ask about products. I will return structured product links with item numbers/SKUs." autocomplete="off" />
+               <button>Send</button>
+             </form>
             <script>
+              const chat = document.getElementById('chat');
               const f = document.getElementById('f');
               const q = document.getElementById('q');
               const status = document.getElementById('status');
-              const html = document.getElementById('html');
-              const gallery = document.getElementById('gallery');
-              const imageUrls = document.getElementById('imageUrls');
-              const pageUrls = document.getElementById('pageUrls');
-              const text = document.getElementById('text');
-              f.addEventListener('submit', async (e) => {
-                e.preventDefault();
-                status.textContent = 'Searching...';
-                html.innerHTML = '';
-                gallery.innerHTML = '';
-                imageUrls.innerHTML = '';
-                pageUrls.innerHTML = '';
-                text.textContent = '';
-                try {
-                  const resp = await fetch('/query', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ query: q.value })
-                  });
-                  const data = await resp.json();
-                  status.textContent = data.error ? ('Error: ' + data.error) : 'Done';
-                  if (data.html) html.innerHTML = data.html; // Render HTML snippet with images
-                  const imgs = Array.isArray(data.image_urls) ? data.image_urls : (Array.isArray(data.images) ? data.images : []);
-                  if (imgs.length) {
-                    for (const u of imgs) {
-                       const proxied = '/img?u=' + encodeURIComponent(u);
-                       const a = document.createElement('a');
-                       a.href = u; a.target = '_blank'; a.rel = 'noopener noreferrer';
-                       const img = document.createElement('img');
-                       img.loading = 'lazy'; img.decoding = 'async'; img.src = proxied; img.alt = 'product image';
-                       a.appendChild(img);
-                       gallery.appendChild(a);
-                     }
+ 
+              function addMsg(role, data) {
+                const wrap = document.createElement('div');
+                wrap.className = 'msg ' + (role === 'user' ? 'user' : 'assistant');
+                const roleEl = document.createElement('div');
+                roleEl.className = 'role';
+                roleEl.textContent = role === 'user' ? 'You' : 'Assistant';
+                wrap.appendChild(roleEl);
+ 
+                if (data && data.html) {
+                  const div = document.createElement('div');
+                  div.innerHTML = data.html;
+                  wrap.appendChild(div);
+                }
+                if (data && data.text) {
+                  const pre = document.createElement('pre');
+                  pre.textContent = data.text;
+                  wrap.appendChild(pre);
+                }
++                // Render structured products as a list (no image URLs)
++                if (data && Array.isArray(data.products) && data.products.length) {
++                  const list = document.createElement('div');
++                  for (const p of data.products) {
++                    const card = document.createElement('div');
++                    card.style.border = '1px solid #eee';
++                    card.style.borderRadius = '10px';
++                    card.style.padding = '8px 10px';
++                    card.style.marginTop = '8px';
++                    const title = document.createElement('div');
++                    const a = document.createElement('a');
++                    a.href = p.product_url || '#'; a.target = '_blank'; a.rel = 'noopener noreferrer';
++                    a.textContent = p.title || p.product_url || 'Product';
++                    title.appendChild(a);
++                    const meta = document.createElement('div');
++                    meta.style.fontSize = '12px'; meta.style.color = '#555';
++                    const parts = [];
++                    if (p.item_number || p.sku) parts.push('Item: ' + (p.item_number || p.sku));
++                    if (p.seller_or_brand) parts.push('Seller/Brand: ' + p.seller_or_brand);
++                    if (p.price) parts.push('Price: ' + p.price);
++                    if (p.rating) parts.push('Rating: ' + p.rating);
++                    meta.textContent = parts.join(' • ');
++                    const specs = document.createElement('ul');
++                    if (Array.isArray(p.key_specs)) {
++                      for (const s of p.key_specs) {
++                        const li = document.createElement('li'); li.textContent = s; specs.appendChild(li);
++                      }
++                    }
++                    card.appendChild(title);
++                    card.appendChild(meta);
++                    if (specs.childElementCount) card.appendChild(specs);
++                    list.appendChild(card);
++                  }
++                  wrap.appendChild(list);
++                }
++                // Related links (non-image URLs)
++                if (data && Array.isArray(data.page_urls) && data.page_urls.length) {
++                  const ul = document.createElement('ul');
++                  for (const u of data.page_urls) {
++                    const li = document.createElement('li');
++                    const a = document.createElement('a'); a.href = u; a.textContent = u; a.target = '_blank'; a.rel = 'noopener';
++                    li.appendChild(a); ul.appendChild(li);
++                  }
++                  wrap.appendChild(ul);
++                }
+                 chat.appendChild(wrap);
+                 window.scrollTo({ top: document.body.scrollHeight, behavior: 'smooth' });
+               }
+ 
+               f.addEventListener('submit', async (e) => {
+                 e.preventDefault();
+                 const prompt = q.value.trim();
+                 if (!prompt) return;
+                 addMsg('user', { text: prompt });
+                 q.value = '';
+                 status.textContent = 'Working...';
+                 try {
+                   const resp = await fetch('/query', {
+                     method: 'POST',
+                     headers: { 'Content-Type': 'application/json' },
+                     body: JSON.stringify({ query: prompt })
+                   });
+                   const data = await resp.json();
+                   if (data && data.error) {
+                     status.textContent = 'Error: ' + data.error;
+                   } else {
+                     status.textContent = '';
+                     addMsg('assistant', data);
                    }
-                  // URL lists
-                  (Array.isArray(data.image_urls) ? data.image_urls : []).forEach(u => {
-                    const li = document.createElement('li');
-                    const a = document.createElement('a'); a.href = u; a.textContent = u; a.target = '_blank'; a.rel = 'noopener';
-                    li.appendChild(a); imageUrls.appendChild(li);
-                  });
-                  (Array.isArray(data.page_urls) ? data.page_urls : []).forEach(u => {
-                    const li = document.createElement('li');
-                    const a = document.createElement('a'); a.href = u; a.textContent = u; a.target = '_blank'; a.rel = 'noopener';
-                    li.appendChild(a); pageUrls.appendChild(li);
-                  });
-                   if (data.text) text.textContent = data.text; // Fallback text/markdown
                  } catch (err) {
                    status.textContent = 'Request failed';
                  }
@@ -301,8 +353,8 @@ async def query(body: QueryIn):
     except Exception as e:
         logging.exception("Agent run failed")
         raise HTTPException(status_code=500, detail=str(e))
-    text, html, image_urls, page_urls = _extract_text_and_html(last_model_event_content)
-    return {"text": text, "html": html, "images": image_urls, "image_urls": image_urls, "page_urls": page_urls}
+    text, html, products, page_urls = _extract_text_and_html(last_model_event_content)
+    return {"text": text, "html": html, "products": products, "page_urls": page_urls}
 
 
 
