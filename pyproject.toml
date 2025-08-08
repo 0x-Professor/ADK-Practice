@@ -9,4 +9,5 @@ dependencies = [
     "python-dotenv>=1.0.1",
     "aiohttp>=3.10.0,<4",
     "google-genai>=1.29.0",
+    "requests>=2.31.0",
 ]
