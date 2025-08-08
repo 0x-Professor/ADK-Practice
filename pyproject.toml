@@ -7,4 +7,5 @@ requires-python = ">=3.13"
 dependencies = [
     "google-adk>=1.10.0",
     "python-dotenv>=1.0.1",
+    "aiohttp>=3.10.0,<4",
 ]
