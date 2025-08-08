@@ -154,10 +154,49 @@ class VectorSearchTool(AgentTool):
         "required": ["query"]
     }
 
+    @staticmethod
+    def _fetch_image_for_title(title: str) -> str | None:
+        cse_id = os.getenv("GOOGLE_CSE_ID")
+        api_key = os.getenv("GOOGLE_SEARCH_API_KEY")
+        if not (cse_id and api_key and title):
+            return None
+        params = {
+            "q": f"{title} product image",
+            "cx": cse_id,
+            "key": api_key,
+            "searchType": "image",
+            "num": 1,
+            "safe": "off",
+        }
+        try:
+            r = requests.get("https://www.googleapis.com/customsearch/v1", params=params, timeout=10)
+            r.raise_for_status()
+            data = r.json()
+            it = (data.get("items") or [None])[0]
+            return it.get("link") if it else None
+        except Exception:
+            return None
+
     async def run(self, query: str, rows: int | None = None):
         url = os.getenv("VECTOR_SEARCH_URL")
         result = call_vector_search(url, query, rows)
-        return json.dumps(result)
+        # Enrich with real images if missing and CSE creds available
+        try:
+            items = result.get("results") if isinstance(result, dict) else None
+            if isinstance(items, list):
+                for item in items:
+                    # Common keys for title/name
+                    title = item.get("title") or item.get("name") or item.get("product_title") or query
+                    # Common keys that may hold image urls
+                    image_url = item.get("image_url") or item.get("image") or item.get("thumbnail")
+                    if not image_url:
+                        fetched = self._fetch_image_for_title(str(title))
+                        if fetched:
+                            item["image_url"] = fetched
+            return json.dumps(result)
+        except Exception:
+            # If enrichment fails, still return raw result
+            return json.dumps(result)
 
 # add the a tool that will generate 5 queries on the basis of the user query and then call the vector search backend to get the results
 class MultiQueryVectorSearchTool(AgentTool):
@@ -195,8 +234,21 @@ class MultiQueryVectorSearchTool(AgentTool):
             return json.dumps({"error": "missing_url", "message": "VECTOR_SEARCH_URL is not set."})
         queries = self._expand_queries(user_query)
         aggregated = []
+        seen_ids = set()
         for q in queries:
             res = call_vector_search(url, q, rows)
+            # Deduplicate by id/title to make it cleaner for production
+            results = (res or {}).get("results") if isinstance(res, dict) else None
+            if isinstance(results, list):
+                unique = []
+                for it in results:
+                    uid = it.get("id") or it.get("title") or it.get("name")
+                    if uid and uid in seen_ids:
+                        continue
+                    if uid:
+                        seen_ids.add(uid)
+                    unique.append(it)
+                res["results"] = unique
             aggregated.append({"query": q, "results": res})
         return json.dumps({"generated_queries": queries, "results_by_query": aggregated})
 
