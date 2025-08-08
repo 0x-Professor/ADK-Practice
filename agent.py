@@ -4,6 +4,8 @@ from dotenv import load_dotenv
 
 from youtube_shorts_assistant import load_instruction_from_file
 
+load_dotenv()
+
 scriptwriter_agent = LlmAgent(
     name="Scriptwriter",
     model='gemini-2.0-flash',
