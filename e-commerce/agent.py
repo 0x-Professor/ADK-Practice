@@ -1,7 +1,7 @@
 import os 
 import logging
 import asyncio
-from google.adk.agents import Agent
+from google.adk.agents import Agent, LoopAgent
 from google.adk.sessions import InMemorySessionService
 from google.adk.runners import Runner
 from google.adk.tools.agent_tool import AgentTool
@@ -284,6 +284,16 @@ shop_agent = Agent(
     description=("Searches for items based on user queries and returns results."),
     instruction=shop_instruction,
     tools=[VectorSearchTool, MultiQueryVectorSearchTool],
+)
+
+# Expose root_agent for ADK loader
+root_agent = LoopAgent(
+    name="e_commerce_root",
+    max_iterations=2,
+    sub_agents=[
+        shop_agent,
+        research_agent,
+    ],
 )
 
 
