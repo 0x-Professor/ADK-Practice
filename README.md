@@ -33,3 +33,13 @@ A minimal project that wires Google ADK LlmAgents to create YouTube Shorts scrip
 ## Notes
 - If instruction files are missing, `youtube_shorts_assistant.load_instruction_from_file` provides sane defaults so the app still runs.
 - Adjust `model` values or add tools as needed.
+
+## Web search with images (built-in google_search)
+- This repo configures the e-commerce agents to use the built-in `google_search` tool (see `e-commerce/agent.py`).
+- Compatibility: requires Gemini 2 models (e.g. `gemini-2.0-flash`).
+- Credentials: set `GOOGLE_CSE_ID` and `GOOGLE_SEARCH_API_KEY` in the environment to enable the tool.
+- What you get: the tool may return a UI snippet (HTML) in the model response under `renderedContent` that includes images for the query.
+- How to show pictures:
+  - Preferred: render the returned `renderedContent` HTML in your app’s UI to display image thumbnails and links.
+  - Fallback: the agent instructions also ask the LLM to include direct image URLs using markdown image tags (e.g., `![alt](image_url)`) so clients that can’t render HTML can still show images.
+- Prompting tip: ask for image-focused queries like “<product> images” (the e-commerce agents are already instructed to do this automatically).
