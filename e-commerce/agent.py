@@ -1,7 +1,7 @@
 import os 
 import logging
 import asyncio
-from google.adk.agents import Agent, LoopAgent
+from google.adk.agents import Agent, LoopAgent, LlmAgent
 from google.adk.sessions import InMemorySessionService
 from google.adk.runners import Runner
 from google.adk.tools.agent_tool import AgentTool
@@ -263,7 +263,7 @@ research_tools = []
 if ENABLE_WEB_SEARCH:
     research_tools = [google_search, GoogleImageSearchTool]
 
-research_agent = Agent(
+research_agent = LlmAgent(
     name="research_agent",
     model='gemini-2.0-flash',
     description=("Searches the web and image sources to gather information and visual assets."),
@@ -278,7 +278,7 @@ shop_instruction  = (
     "to broaden recall and then summarize the top matches for the user."
 )
 
-shop_agent = Agent(
+shop_agent = LlmAgent(
     name="shop_agent",
     model='gemini-2.0-flash',
     description=("Searches for items based on user queries and returns results."),
@@ -287,7 +287,7 @@ shop_agent = Agent(
 )
 
 # Expose root_agent for ADK loader
-root_agent = LoopAgent(
+e_commerce_root = LoopAgent(
     name="e_commerce_root",
     max_iterations=2,
     sub_agents=[
@@ -295,6 +295,8 @@ root_agent = LoopAgent(
         research_agent,
     ],
 )
+
+root_agent  = e_commerce_root
 
 
 
