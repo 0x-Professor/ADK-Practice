@@ -1,7 +1,7 @@
 import os 
 import logging
 import asyncio
-from google.adk.agents import Agent, LoopAgent, LlmAgent
+from google.adk.agents import LoopAgent, LlmAgent
 from google.adk.sessions import InMemorySessionService
 from google.adk.runners import Runner
 from google.adk.tools.agent_tool import AgentTool
@@ -24,29 +24,6 @@ session_service = InMemorySessionService()
 session = session_service.create_session(
     app_name=APP_NAME, user_id=USER_ID, session_id=SESSION_ID
 )
-
-async def test_agent(query, agent):
-    """Sends a query to the agent and prints the final response."""
-    print(f"Query: {query}")
-    
-    #create a runner
-    runner = Runner(
-        session_service=session_service,
-        agent=agent,
-        app_name=APP_NAME,
-        
-    )
-    content  = types.Content(role = 'user', parts = [types.Part(text=query)])
-    
-    final_response_text = None
-    
-    #we iterate through events from run_async to find the final answer
-    async for event in runner.run_async(user_id=USER_ID, session_id=SESSION_ID, new_message=content):
-        if event.is_final_response():
-            if event.content and event.content.parts:
-                final_response_text = event.content.parts[0].text
-            break
-    print(f"Final Response: {final_response_text}")
 
 # Define call_vector_search to call the vector search backend.
 def call_vector_search(url,query, rows= None):
@@ -91,7 +68,7 @@ def call_vector_search(url,query, rows= None):
         return {"error": "unknown_error", "message": str(e)}
     
 #add another research agent using the google search tool that must be capable of searching the web and also searching for the required image data 
-from google.adk.tools import google_search
+# from google.adk.tools import google_search  # Replaced with custom web search tool to avoid binding issues
 
 class GoogleImageSearchTool(AgentTool):
     name = "google_image_search"
@@ -136,6 +113,53 @@ class GoogleImageSearchTool(AgentTool):
                 for it in items
             ]
             return json.dumps({"query": query, "count": len(images), "images": images})
+        except requests.HTTPError as e:
+            return json.dumps({"error": "http_error", "status": r.status_code if 'r' in locals() else None, "detail": r.text if 'r' in locals() else str(e)})
+        except Exception as e:
+            return json.dumps({"error": "unknown_error", "message": str(e)})
+
+class GoogleWebSearchTool(AgentTool):
+    name = "google_web_search"
+    description = (
+        "Search Google Programmable Search Engine for web results related to a query."
+    )
+    input_schema = {
+        "type": "object",
+        "properties": {
+            "query": {"type": "string", "description": "Query to search the web for"},
+            "num": {"type": "integer", "description": "Number of results to return (1-10)", "minimum": 1, "maximum": 10, "default": 5},
+            "safe": {"type": "string", "enum": ["off", "medium", "high"], "default": "off"}
+        },
+        "required": ["query"]
+    }
+
+    async def run(self, query: str, num: int = 5, safe: str = "off"):
+        cse_id = os.getenv("GOOGLE_CSE_ID")
+        api_key = os.getenv("GOOGLE_SEARCH_API_KEY")
+        if not (cse_id and api_key):
+            return json.dumps({"error": "missing_credentials", "message": "GOOGLE_CSE_ID and GOOGLE_SEARCH_API_KEY are required for web search."})
+        params = {
+            "q": query,
+            "cx": cse_id,
+            "key": api_key,
+            "num": max(1, min(10, int(num))),
+            "safe": safe,
+        }
+        try:
+            r = requests.get("https://www.googleapis.com/customsearch/v1", params=params, timeout=20)
+            r.raise_for_status()
+            data = r.json()
+            items = data.get("items", [])
+            results = [
+                {
+                    "title": it.get("title"),
+                    "link": it.get("link"),
+                    "snippet": it.get("snippet"),
+                    "displayLink": it.get("displayLink"),
+                }
+                for it in items
+            ]
+            return json.dumps({"query": query, "count": len(results), "results": results})
         except requests.HTTPError as e:
             return json.dumps({"error": "http_error", "status": r.status_code if 'r' in locals() else None, "detail": r.text if 'r' in locals() else str(e)})
         except Exception as e:
@@ -261,7 +285,7 @@ research_instruction = (
 )
 research_tools = []
 if ENABLE_WEB_SEARCH:
-    research_tools = [google_search, GoogleImageSearchTool]
+    research_tools = [GoogleWebSearchTool, GoogleImageSearchTool]
 
 research_agent = LlmAgent(
     name="research_agent",
