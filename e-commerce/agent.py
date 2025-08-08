@@ -7,6 +7,8 @@ from google.adk.runners import Runner
 from google.adk.tool.agent_tool import AgentTool
 from google.genai import types
 from dotenv import load_dotenv
+import requests
+import json
 load_dotenv()
 
 
@@ -47,4 +49,18 @@ async def test_agent(query, agent):
     print(f"Final Response: {final_response_text}")
     
     #Define the shop agent.
+    
+    instruction  = f"""
+    your role is a shop search agent on an e-commerce site with millions of items.
+    your responsibility is to search for items based on user queries and return the results.
+    """
+    
+    shop_agent = Agent(
+        name="shop_agent",
+        model='gemini-2.0-flash',
+        description=("Searches for items based on user queries and returns results."),
+        instruction=instruction,
+        )
+    await test_agent(query, shop_agent)
+    
     
