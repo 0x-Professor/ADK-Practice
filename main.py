@@ -9,11 +9,16 @@ import re
 
 from fastapi import FastAPI, HTTPException
 from fastapi.responses import Response
+from pydantic import BaseModel
 import urllib.parse
 import requests
+from dotenv import load_dotenv
 
 from google.adk.runners import InMemoryRunner
 from google.genai import types
+
+# Load environment variables from .env
+load_dotenv()
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger("adk_practice.web")
