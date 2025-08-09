@@ -4,6 +4,7 @@ from google.adk.runners import Runner
 from google.adk.tools import google_search
 from google.genai import types
 from ...shared_libraries import constants
+from . import prompt
 
 keyword_finding_agent = LlmAgent(
     model = constants.MODEL,
