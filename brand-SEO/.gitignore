@@ -1,0 +1,11 @@
+# Ignore Python caches
+__pycache__/
+*.py[oc]
+
+# Local env files
+.env
+.env.*
+!.env.example
+
+# Selenium artifacts
+sub_agent/search_result/artifacts/
