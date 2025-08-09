@@ -3,6 +3,11 @@ from google.adk.tools import google_search
 from dotenv import load_dotenv
 
 load_dotenv()
+def get_current_date() -> dict:
+    """ Returns the current date in YYYY-MM-DD format. Used for logging or metadata purposes. """
+    from datetime import datetime
+    return {"current_date": datetime.now().strftime("%Y-%m-%d")}
+
 
 root_agent = Agent(
     model='gemini-2.0-flash',
