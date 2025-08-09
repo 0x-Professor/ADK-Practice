@@ -1,4 +1,4 @@
-KEYWORD_FINDING_AGENT_PROMPT = """
+SEARCH_RESULT_AGENT_PROMPT = """
 Keyword Finding Agent Prompt
 
 Role
