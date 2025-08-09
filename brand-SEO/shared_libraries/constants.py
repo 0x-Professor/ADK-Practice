@@ -4,7 +4,8 @@ import os
 from dotenv import load_dotenv
 load_dotenv()
 
-ROOT_AGENT_NAME = "Brand SEO Root Agent"
+# Agent names must be valid identifiers (letters, digits, underscores)
+ROOT_AGENT_NAME = "brand_seo_root_agent"
 ROOT_AGENT_DESCRIPTION = "This agent manages the brand SEO tasks including comparison, search results, and keyword finding."
 # Use a model name, not an API key. Allow override via GENAI_MODEL env.
 MODEL = os.getenv("GENAI_MODEL", "gemini-2.0-flash")
