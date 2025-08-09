@@ -147,12 +147,14 @@ name = "brand-seo"
 version = "0.1.0"
 source = { virtual = "brand-SEO" }
 dependencies = [
+    { name = "google-adk" },
     { name = "selenium" },
     { name = "webdriver-manager" },
 ]
 
 [package.metadata]
 requires-dist = [
+    { name = "google-adk", specifier = ">=1.10.0" },
     { name = "selenium", specifier = ">=4.22.0" },
     { name = "webdriver-manager", specifier = ">=4.0.2" },
 ]
