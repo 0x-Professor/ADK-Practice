@@ -78,8 +78,11 @@ Variables
 </Steps>
 
 <Tool Call Format>
-- When calling a tool, emit a tool_call with the tool name and JSON input.
-- When receiving a tool result, emit a tool_result with the tool name and JSON/text output.
+- When calling a tool, output exactly:
+  <tool_call name="TOOL_NAME">JSON</tool_call>
+- When receiving a tool result, output exactly:
+  <tool_result name="TOOL_NAME">JSON</tool_result>
+- JSON must be valid and contain all required input fields for that tool.
 </Tool Call Format>
 
 <Error Handling>
@@ -115,14 +118,14 @@ User: "Hi"
 Assistant: Greeting + ask for brand
 User: "StrideKids"
 Assistant: Confirm brand; share overview
-(tool_call keyword_finding_agent) with input: brand=StrideKids
-(tool_result keyword_finding_agent) ...
+<tool_call name="keyword_finding_agent">{"brand":"StrideKids"}</tool_call>
+<tool_result name="keyword_finding_agent">...</tool_result>
 Assistant: Show top keywords; select top_keyword
-(tool_call search_result_agent) with input: keyword=kids shoes, brand=StrideKids
-(tool_result search_result_agent) ...
+<tool_call name="search_result_agent">{"keyword":"kids shoes","brand":"StrideKids"}</tool_call>
+<tool_result name="search_result_agent">...</tool_result>
 Assistant: Summarize SERP; choose competitors
-(tool_call comparison_root_agent) with input: brand=StrideKids, competitors=[nike.com, adidas.com, skechers.com], keyword=kids shoes
-(tool_result comparison_root_agent) ...
+<tool_call name="comparison_root_agent">{"brand":"StrideKids","competitors":["nike.com","adidas.com","skechers.com"],"keyword":"kids shoes"}</tool_call>
+<tool_result name="comparison_root_agent">...</tool_result>
 Assistant: Present report; propose next steps
 </Example Flow>
 
