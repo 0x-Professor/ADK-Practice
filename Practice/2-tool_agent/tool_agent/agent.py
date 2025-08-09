@@ -342,7 +342,7 @@ root_agent = Agent(
         wiki_get_page,
         wiki_get_html,
         # General web search (optional)
-        google_search,
+        #google_search,
         # Finance/Marketing
         currency_convert,
         mortgage_calculator,
@@ -350,5 +350,5 @@ root_agent = Agent(
         # Misc
         get_current_date,
     ],
-    # ...existing config...
+    # you can use the custom tool only or the built in tools like google_search at once but not the both because they give error
 )
