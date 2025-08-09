@@ -19,4 +19,5 @@ dependencies = [
 members = [
     "brand-SEO",
     "Practice",
+    "Practice/1-basic-agent",
 ]
