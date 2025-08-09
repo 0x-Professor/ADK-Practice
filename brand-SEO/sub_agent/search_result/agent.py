@@ -31,4 +31,5 @@ search_result_agent = LlmAgent(
         analyze_webpage_and_determine_actions,
         
     ],
+    output_key="serp_analysis",
 )

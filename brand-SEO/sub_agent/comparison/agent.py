@@ -24,4 +24,5 @@ comparison_root_agent = LlmAgent(
     description="Orchestrates comparison and critique to produce a final comparison report.",
     instruction=prompt.COMPARISON_ROOT_AGENT_PROMPT,
     sub_agents=[comparison_agent, comparison_critic_agent],
+    output_key="comparison_report",
 )

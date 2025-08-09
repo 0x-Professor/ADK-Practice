@@ -11,5 +11,6 @@ keyword_finding_agent = LlmAgent(
     name = "keyword_finding_agent",
     description= "A helpful agent to find keywords",
     instruction=prompt.KEYWORD_FINDING_AGENT_PROMPT,
-    tools=[google_search]
+    tools=[google_search],
+    output_key="keyword_research",
 )
