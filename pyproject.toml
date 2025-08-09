@@ -14,3 +14,8 @@ dependencies = [
     "uvicorn[standard]>=0.27.0",
     "scikit-learn>=1.3.0",
 ]
+
+[tool.uv.workspace]
+members = [
+    "brand-SEO",
+]
