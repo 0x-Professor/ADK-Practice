@@ -1,10 +1,19 @@
 from google.adk.agents import LoopAgent, LlmAgent
 from google.adk.sessions import InMemorySessionService
 from google.adk.runners import Runner
-from google.adk.tools import google_search
 from google.genai import types
 from ...shared_libraries import constants
 from . import prompt
+from .tools import (
+    go_to_url,
+    take_screenshot,
+    find_element_with_text,
+    click_element_with_text,
+    enter_text_into_element,
+    scroll_down_screen,
+    load_artifacts_tool,
+    analyze_webpage_and_determine_actions,
+)
 
 search_result_agent = LlmAgent(
     model=constants.MODEL,
