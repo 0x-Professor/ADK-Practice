@@ -18,4 +18,5 @@ dependencies = [
 [tool.uv.workspace]
 members = [
     "brand-SEO",
+    "Practice",
 ]
