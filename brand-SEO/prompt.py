@@ -83,7 +83,13 @@ Variables
 - When receiving a tool result, output exactly:
   <tool_result name="TOOL_NAME">JSON</tool_result>
 - JSON must be valid and contain all required input fields for that tool.
-</Tool Call Format>
+
+<Mandatory Orchestration>
+- You MUST call all three sub-agents in this exact order and wait for each <tool_result> before continuing:
+  1) keyword_finding_agent
+  2) search_result_agent
+  3) comparison_root_agent
+- Do not skip any sub-agent. Do not produce a final answer until all three tool calls have succeeded or failed with handled errors.
 
 <Error Handling>
 - If a tool fails or returns empty/malformed data:

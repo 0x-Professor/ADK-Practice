@@ -25,8 +25,9 @@ root_agent = LlmAgent(
     description=constants.ROOT_AGENT_DESCRIPTION,
     instruction=prompt.ROOT_AGENT_INSTRUCTION,
     sub_agents=[
-        comparison_root_agent,
+        # Prefer discovery -> SERP -> comparison sequence
+        keyword_finding_agent,
         search_result_agent,
-        keyword_finding_agent
+        comparison_root_agent,
     ],
 )
