@@ -7,7 +7,7 @@ from .sub_agent.search_result.agent import search_result_agent
 from .sub_agent.keyword_finding.agent import keyword_finding_agent
 from google.adk.agents import LlmAgent
 from dotenv import load_dotenv
-from .import prompt
+from . import prompt
 load_dotenv()
 
 
@@ -18,14 +18,14 @@ logging.getLogger("opentelemetry.semconv").setLevel(logging.ERROR)
 logging.getLogger("google.adk.runners").setLevel(logging.ERROR)
 logging.getLogger("google.genai.types").setLevel(logging.ERROR)
 
-# Root agent for Brand SEO
+# Root LLM orchestrator that MUST call all sub-agents in order per prompt
 root_agent = LlmAgent(
-    model = constants.MODEL,
-    name= constants.ROOT_AGENT_NAME,
+    name=constants.ROOT_AGENT_NAME,
+    model=constants.MODEL,
     description=constants.ROOT_AGENT_DESCRIPTION,
     instruction=prompt.ROOT_AGENT_INSTRUCTION,
     sub_agents=[
-        # Prefer discovery -> SERP -> comparison sequence
+        # discovery -> SERP -> comparison sequence
         keyword_finding_agent,
         search_result_agent,
         comparison_root_agent,
