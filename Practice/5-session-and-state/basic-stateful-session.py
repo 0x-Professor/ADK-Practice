@@ -2,7 +2,7 @@ from google.adk.agents.llm_agent import Agent
 from google.adk.runners import Runner
 from google.adk.sessions import InMemorySessionService, Session
 from google.genai import types
-from question_answering import question_answering_agent
+from question_answering_agent import question_answering_agent
 from dotenv import load_dotenv
 import uuid
 
@@ -51,3 +51,25 @@ new_message = types.Content(
     role=types.Role.USER,
     parts= [types.TextPart(text="What are my favorite activities?")],
 )   
+
+for event in runner.run(
+    user_id= USER_ID,
+    session_id = SESSION_ID,
+    new_message = new_message,
+):
+    if event.is_final_response():
+        if event.content and event.content.parts:
+            response_text = event.content.parts[0].text
+            print(f"Response: {response_text}")
+
+print("Session state after interaction:")
+session = session_service_stateful.get_session(
+    app_name = APP_NAME,
+    user_id = USER_ID,
+    session_id=SESSION_ID)
+
+print(session.state)
+print("Session ID:", session.session_id)
+
+
+    
