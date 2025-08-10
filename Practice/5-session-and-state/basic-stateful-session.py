@@ -29,8 +29,9 @@ stateful_session = session_service_stateful.create_session(
     session_id=SESSION_ID,
     user_id=USER_ID,
     app_name=APP_NAME,
-    initial_state=initial_state
 )
+# Merge the desired initial state into the newly created session (per google-adk API)
+stateful_session.state.update(initial_state)
 
 print(f"Stateful session created with ID: {SESSION_ID}")
 runner = Runner(
