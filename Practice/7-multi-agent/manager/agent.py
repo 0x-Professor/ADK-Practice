@@ -49,10 +49,7 @@ root_agent = Agent(
         joke_teller_agent,
     ],
     tools=[
-        AgentTool(
-            name="get_current_time",
-            description="Get the current time in a specific format",
-            tool=get_current_time,
-        ),
+        # Register tool function directly per ADK API
+        get_current_time,
     ],
 )
