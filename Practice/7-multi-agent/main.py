@@ -50,7 +50,7 @@ except Exception:  # pragma: no cover
 
 from manager import root_agent
 
-APP_NAME = "multi-agent-manager"
+APP_NAME = "manager"
 USER_ID = "demo-user"
 
 
