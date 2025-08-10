@@ -46,3 +46,8 @@ runner = Runner(
     If you need more information, ask the user for clarification.
     """,
 )
+
+new_message = types.Content(
+    role=types.Role.USER,
+    parts= [types.TextPart(text="What are my favorite activities?")],
+)   

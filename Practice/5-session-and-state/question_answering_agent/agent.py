@@ -1,8 +1,12 @@
 from google.adk.agents.llm_agent import Agent
 
-root_agent = Agent(
-    model='<FILL_IN_MODEL>',
-    name='root_agent',
-    description='A helpful assistant for user questions.',
-    instruction='Answer user questions to the best of your knowledge',
+question_answering_agent = Agent(
+    model='gemini-2.0-flash',
+    name='question_answering_agent',
+    description='An agent that can answer questions based on user preferences and past interactions.',
+    instruction="""
+    You are a personal assistant that can answer questions based on the user's preferences and past interactions.
+    Use the session state to provide personalized responses.
+    If you need more information, ask the user for clarification.   
+    """,
 )
