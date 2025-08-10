@@ -24,7 +24,7 @@ MODEL = os.getenv("GENAI_MODEL", "gemini-2.0-flash")
 
 news_analyst_agent = Agent(
     model=MODEL,
-    name="news_analyst_agent",
+    name="news_analyst",
     description="Analyzes recent news and provides concise, source-aware summaries.",
     instruction=(
         "You are a news analyst. Provide brief, neutral summaries with key facts and context."

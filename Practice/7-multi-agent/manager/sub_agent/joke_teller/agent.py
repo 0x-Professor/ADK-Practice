@@ -15,7 +15,7 @@ MODEL = os.getenv("GENAI_MODEL", "gemini-2.0-flash")
 
 joke_teller_agent = LlmAgent(
     model=MODEL,
-    name="joke_teller_agent",
+    name="joke_teller",
     description="Tells clean, short, family-friendly jokes.",
     instruction=(
         "You are a joke-telling assistant. Tell a single, clean joke (1-3 sentences)."

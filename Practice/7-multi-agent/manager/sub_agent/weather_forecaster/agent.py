@@ -99,7 +99,7 @@ MODEL = os.getenv("GENAI_MODEL", "gemini-2.0-flash")
 
 weather_forecaster_agent = LlmAgent(
     model=MODEL,
-    name="weather_forecaster_agent",
+    name="weather_forecaster",
     description="Provides quick weather forecasts using Open-Meteo tool.",
     instruction=(
         "You are a weather assistant. When asked for weather, call the get_weather tool"
