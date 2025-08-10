@@ -2,11 +2,11 @@ from __future__ import annotations
 
 import os
 
-# Prefer real LlmAgent; provide minimal fallback to satisfy static analysis
+# Prefer real Agent; provide minimal fallback to satisfy static analysis
 try:
-    from google.adk.agents import LlmAgent  # type: ignore
+    from google.adk.agents.llm_agent import Agent  # type: ignore
 except Exception:  # pragma: no cover
-    class LlmAgent:  # minimal stub
+    class Agent:  # minimal stub
         def __init__(self, *args, **kwargs):
             for k, v in kwargs.items():
                 setattr(self, k, v)
@@ -22,7 +22,7 @@ except Exception:
 
 MODEL = os.getenv("GENAI_MODEL", "gemini-2.0-flash")
 
-news_analyst_agent = LlmAgent(
+news_analyst_agent = Agent(
     model=MODEL,
     name="news_analyst_agent",
     description="Analyzes recent news and provides concise, source-aware summaries.",

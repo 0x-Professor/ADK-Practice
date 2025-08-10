@@ -2,13 +2,6 @@ from __future__ import annotations
 
 import os
 
-# Optional dotenv loading
-try:
-    from dotenv import load_dotenv
-    load_dotenv()
-except Exception:
-    pass
-
 # Prefer real ADK classes; define minimal fallbacks for static analysis if not installed
 try:
     from google.adk.agents.llm_agent import Agent  # type: ignore
@@ -49,12 +42,12 @@ root_agent = Agent(
         "If you don't know how to answer a question, you can delegate it to a sub-agent.\n"
         "If you don't know how to use a tool, ask the user for more information."
     ),
-    sub_agents={
+    sub_agents=[
         funny_nerd_agent,
         news_analyst_agent,
         weather_forecaster_agent,
         joke_teller_agent,
-    },
+    ],
     tools=[
         AgentTool(
             name="get_current_time",

@@ -3,16 +3,16 @@ from __future__ import annotations
 import os
 
 try:
-    from google.adk.agents import LlmAgent  # type: ignore
+    from google.adk.agents.llm_agent import Agent  # type: ignore
 except Exception:  # pragma: no cover
-    class LlmAgent:  # minimal stub
+    class Agent:  # minimal stub
         def __init__(self, *args, **kwargs):
             for k, v in kwargs.items():
                 setattr(self, k, v)
 
-MODEL = os.getenv("GOOGLE_API_KEY", "gemini-2.0-flash")
+MODEL = os.getenv("GENAI_MODEL", "gemini-2.0-flash")
 
-funny_nerd_agent = LlmAgent(
+funny_nerd_agent = Agent(
     model=MODEL,
     name="funny_nerd_agent",
     description="A witty, nerdy assistant for light-hearted explanations and fun facts.",
