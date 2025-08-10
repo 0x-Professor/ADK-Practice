@@ -1,8 +1,8 @@
-from google.adk.agents.llm_agent import Agent
 from google.adk.sessions import DatabaseSessionService
 from memory_agent.agent import memory_agent
 from google.adk.runners import Runner
 from utils import call_agent_async
+from google.genai import types
 from dotenv import load_dotenv
 import uuid
 load_dotenv()
@@ -19,13 +19,15 @@ async def main_asyncio():
     APP_NAME = "memory_agent"
     USER_ID = "user123"
     
-    existing_sessions = await session_service.list_session(
-        app_name = APP_NAME,
-        user_id = USER_ID,
+    # List existing sessions (plural API) and pick the first one if any
+    resp = await session_service.list_sessions(
+        app_name=APP_NAME,
+        user_id=USER_ID,
     )
+    existing = resp.sessions if resp else []
     
-    if existing_sessions and len(existing_sessions) > 0:
-       SESSION_ID = existing_sessions[0].session_id
+    if existing:
+        SESSION_ID = existing[0].id
     else:
         SESSION_ID = str(uuid.uuid4())
         stateful_session = await session_service.create_session(
@@ -53,22 +55,10 @@ async def main_asyncio():
             print("Exiting the session.")
             break
         
-        new_message = {
-            "role": "user",
-            "content": user_input,
-        }
-        
-        async for event in runner.run(
-            user_id=USER_ID,
-            session_id=SESSION_ID,
-            new_message=new_message,
-        ):
-            if event.is_final_response():
-                if event.content and event.content.parts:
-                    response_text = event.content.parts[0].text
-                    print(f"Memory Agent: {response_text}")
-        print("Session state after interaction:")
+        # Delegate to utility that streams and prints final response
         await call_agent_async(runner, USER_ID, SESSION_ID, user_input)
+        
+        # Show persisted session state
         session = await session_service.get_session(
             app_name=APP_NAME,
             user_id=USER_ID,
@@ -79,4 +69,4 @@ async def main_asyncio():
 
 if __name__ == "__main__":
     import asyncio
-    asyncio.run(main_asyncio())        
+    asyncio.run(main_asyncio())
