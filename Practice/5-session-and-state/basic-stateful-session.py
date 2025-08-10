@@ -2,7 +2,7 @@ from google.adk.agents.llm_agent import Agent
 from google.adk.runners import Runner
 from google.adk.sessions import InMemorySessionService, Session
 from google.genai import types
-from question_answering_agent import question_answering_agent
+from question_answering import question_answering_agent
 from dotenv import load_dotenv
 import uuid
 
@@ -69,7 +69,8 @@ session = session_service_stateful.get_session(
     session_id=SESSION_ID)
 
 print(session.state)
-print("Session ID:", session.session_id)
+for key, value in session.state.items():
+    print(f"{key}: {value}")
 
 
     
