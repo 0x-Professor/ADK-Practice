@@ -18,7 +18,7 @@ from .sub_agent.weather_forecaster.agent import weather_forecaster_agent
 from .sub_agent.joke_teller.agent import joke_teller_agent
 
 # Local tools
-from .tools.tools import get_current_time
+from .tools.tools import get_current_time_tool
 
 MODEL = os.getenv("GENAI_MODEL", "gemini-2.0-flash")
 
@@ -40,7 +40,7 @@ root_agent = Agent(
         joke_teller_agent,
     ],
     tools=[
-        # Register tool function directly per ADK API
-        get_current_time,
+        # Register tool function directly per ADK API (no default params)
+        get_current_time_tool,
     ],
 )
