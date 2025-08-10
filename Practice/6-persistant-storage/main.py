@@ -37,4 +37,46 @@ async def main_asyncio():
         print("Seeded session state:")
         print(stateful_session.state)
         print(f"Stateful session created with ID: {SESSION_ID}")
+    
+    runner = Runner(
+        agent=memory_agent,
+        session_service=session_service,
+        app_name=APP_NAME,
+    )
+    
+    print(f"Running agent with session ID: {SESSION_ID}")
+    print("You can ask me to remember things or retrieve your reminders.")
+    
+    while True:
+        user_input = input("You: ")
+        if user_input.lower() in ["exit", "quit"]:
+            print("Exiting the session.")
+            break
         
+        new_message = {
+            "role": "user",
+            "content": user_input,
+        }
+        
+        async for event in runner.run(
+            user_id=USER_ID,
+            session_id=SESSION_ID,
+            new_message=new_message,
+        ):
+            if event.is_final_response():
+                if event.content and event.content.parts:
+                    response_text = event.content.parts[0].text
+                    print(f"Memory Agent: {response_text}")
+        print("Session state after interaction:")
+        await call_agent_async(runner, USER_ID, SESSION_ID, user_input)
+        session = await session_service.get_session(
+            app_name=APP_NAME,
+            user_id=USER_ID,
+            session_id=SESSION_ID,
+        )
+        print("Current session state:")
+        print(session.state)
+
+if __name__ == "__main__":
+    import asyncio
+    asyncio.run(main_asyncio())        
