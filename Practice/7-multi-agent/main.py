@@ -5,6 +5,15 @@ import sys
 import uuid
 from typing import Optional
 
+# Suppress noisy Pydantic shadow warnings
+import warnings
+warnings.filterwarnings(
+    "ignore",
+    message=r"Field name .* shadows an attribute in parent",
+    category=UserWarning,
+    module="pydantic",
+)
+
 # Optional dotenv
 try:
     from dotenv import load_dotenv  # type: ignore
