@@ -2,7 +2,6 @@ from google.adk.sessions import DatabaseSessionService
 from memory_agent.agent import memory_agent
 from google.adk.runners import Runner
 from utils import call_agent_async
-from google.genai import types
 from dotenv import load_dotenv
 import uuid
 load_dotenv()
