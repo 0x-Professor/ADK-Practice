@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import os
-from google.adk.agents.llm_agent import Agent
 
 # Prefer real LlmAgent; provide minimal fallback to satisfy static analysis
 try:
@@ -22,13 +21,6 @@ except Exception:
     TOOLS = []
 
 MODEL = os.getenv("GENAI_MODEL", "gemini-2.0-flash")
-
-root_agent = Agent(
-    model='<FILL_IN_MODEL>',
-    name='root_agent',
-    description='A helpful assistant for user questions.',
-    instruction='Answer user questions to the best of your knowledge',
-)
 
 news_analyst_agent = LlmAgent(
     model=MODEL,
