@@ -1,5 +1,7 @@
 from google.adk.agents.llm_agent import Agent
 from pydantic import BaseModel, Field
+from dotenv import load_dotenv
+load_dotenv()
 
 class EmailContent(BaseModel):
     subject: str = Field(..., description="The subject of the email")
