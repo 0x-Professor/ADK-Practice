@@ -23,7 +23,6 @@ members = [
     "Agentic-Tools/brand-SEO",
     "Practice",
     "Practice/1-basic-agent",
-    "Practice/2-tool_agent",
     "Practice/3-litellm_agent",
-    "Practice/3-litellm_agent/create_joke",
+    "Practice/4-structured-output",
 ]
