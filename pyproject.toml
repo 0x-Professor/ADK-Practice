@@ -20,7 +20,7 @@ dependencies = [
 
 [tool.uv.workspace]
 members = [
-    "brand-SEO",
+    "Agentic-Tools/brand-SEO",
     "Practice",
     "Practice/1-basic-agent",
     "Practice/2-tool_agent",
