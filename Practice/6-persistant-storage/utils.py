@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from typing import Optional
+from google.genai import types
 
 async def call_agent_async(runner, user_id: str, session_id: str, user_input: str) -> Optional[str]:
     """Send a user message to the agent runner (async) and print the final response.
@@ -8,7 +9,8 @@ async def call_agent_async(runner, user_id: str, session_id: str, user_input: st
     Returns the final response text (if any) for convenience.
     """
     final_text: Optional[str] = None
-    msg = {"role": "user", "content": user_input}
+    # Build a proper Content message for ADK Runner
+    msg = types.Content(role="user", parts=[types.Part(text=user_input)])
 
     async for event in runner.run_async(
         user_id=user_id,
