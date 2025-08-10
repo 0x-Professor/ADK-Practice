@@ -7,7 +7,7 @@ try:
     from google.adk.sessions import InMemorySessionService  # type: ignore
     from google.adk.runners import Runner  # type: ignore
 
-    APP_NAME = "multi-agent-manager"
+    APP_NAME = "manager"
 
     def get_runner(user_id: str = "user-1", session_id: str = "session-001"):
         service = InMemorySessionService()

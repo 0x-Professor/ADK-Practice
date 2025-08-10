@@ -8,4 +8,6 @@ dependencies = [
     "aiohttp>=3.12.15",
     "google-adk>=1.10.0",
     "litellm>=1.46.0",
+    "requests>=2.32.3",
+    "python-dotenv>=1.0.1",
 ]
