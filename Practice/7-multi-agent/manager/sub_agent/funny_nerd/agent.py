@@ -1,9 +1,16 @@
 from __future__ import annotations
 
 import os
-from google.adk.agents import LlmAgent
 
-MODEL = os.getenv("GENAI_MODEL", "gemini-2.0-flash")
+try:
+    from google.adk.agents import LlmAgent  # type: ignore
+except Exception:  # pragma: no cover
+    class LlmAgent:  # minimal stub
+        def __init__(self, *args, **kwargs):
+            for k, v in kwargs.items():
+                setattr(self, k, v)
+
+MODEL = os.getenv("GOOGLE_API_KEY", "gemini-2.0-flash")
 
 funny_nerd_agent = LlmAgent(
     model=MODEL,

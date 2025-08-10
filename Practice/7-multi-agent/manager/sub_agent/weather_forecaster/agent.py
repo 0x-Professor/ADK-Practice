@@ -3,7 +3,6 @@ from __future__ import annotations
 import os
 import requests
 from typing import Any, Dict, Optional
-from google.adk.agents.llm_agent import Agent
 
 # Prefer real LlmAgent; provide minimal fallback for static checks
 try:
@@ -97,13 +96,6 @@ def get_weather(city: str, days: int = 1, units: str = DEFAULT_UNITS) -> Dict[st
 
 
 MODEL = os.getenv("GENAI_MODEL", "gemini-2.0-flash")
-
-root_agent = Agent(
-    model='<FILL_IN_MODEL>',
-    name='root_agent',
-    description='A helpful assistant for user questions.',
-    instruction='Answer user questions to the best of your knowledge',
-)
 
 weather_forecaster_agent = LlmAgent(
     model=MODEL,
