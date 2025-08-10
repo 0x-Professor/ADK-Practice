@@ -1,8 +1,15 @@
+import warnings
+warnings.filterwarnings(
+    "ignore",
+    message=r"Field name .* shadows an attribute in parent",
+    category=UserWarning,
+    module="pydantic",
+)
+
 from google.adk.sessions import DatabaseSessionService
 from memory_agent.agent import memory_agent
 from google.adk.runners import Runner
 from utils import call_agent_async
-from google.genai import types
 from dotenv import load_dotenv
 import uuid
 load_dotenv()
@@ -55,17 +62,15 @@ async def main_asyncio():
             print("Exiting the session.")
             break
         
-        # Delegate to utility that streams and prints final response
-        await call_agent_async(runner, USER_ID, SESSION_ID, user_input)
-        
-        # Show persisted session state
-        session = await session_service.get_session(
+        # Stream run with professional per-event state snapshots
+        await call_agent_async(
+            runner,
+            USER_ID,
+            SESSION_ID,
+            user_input,
+            session_service=session_service,
             app_name=APP_NAME,
-            user_id=USER_ID,
-            session_id=SESSION_ID,
         )
-        print("Current session state:")
-        print(session.state)
 
 if __name__ == "__main__":
     import asyncio
