@@ -35,6 +35,8 @@ async def main():
         app_name=APP_NAME,
     )
     stateful_session.state.update(initial_state)
+    print("Seeded session state:")
+    print(stateful_session.state)
 
     print(f"Stateful session created with ID: {SESSION_ID}")
     runner = Runner(
@@ -65,6 +67,9 @@ async def main():
         session_id=SESSION_ID,
     )
     print(session.state)
+    # Also show the original session object state for comparison
+    print("Original session object state:")
+    print(stateful_session.state)
     for key, value in session.state.items():
         print(f"{key}: {value}")
 
