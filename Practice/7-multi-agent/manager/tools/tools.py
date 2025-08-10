@@ -40,3 +40,14 @@ def get_current_time(fmt: str = "%Y-%m-%d %H:%M:%S %Z", tz: Optional[str] = None
     except Exception:
         # Fallback format if the provided one is invalid
         return dt.strftime("%Y-%m-%d %H:%M:%S %Z")
+
+
+def get_current_time_tool(fmt: str, tz: str) -> str:
+    """Tool-safe wrapper with no default parameters.
+
+    - Google AI function declarations do not allow default values.
+    - Accept empty strings and coerce to sensible defaults.
+    """
+    fmt = fmt or "%Y-%m-%d %H:%M:%S %Z"
+    tz_opt: Optional[str] = tz or None
+    return get_current_time(fmt=fmt, tz=tz_opt)
