@@ -1,21 +1,54 @@
-from google.adk.agents.llm_agent import Agent
-from google.adk.tools.agent_tool import AgentTool
+from __future__ import annotations
+
+import os
+
+# Optional dotenv loading
+try:
+    from dotenv import load_dotenv
+    load_dotenv()
+except Exception:
+    pass
+
+# Prefer real ADK classes; define minimal fallbacks for static analysis if not installed
+try:
+    from google.adk.agents.llm_agent import Agent  # type: ignore
+except Exception:  # pragma: no cover
+    class Agent:  # minimal fallback stub
+        def __init__(self, *args, **kwargs):
+            for k, v in kwargs.items():
+                setattr(self, k, v)
+
+try:
+    from google.adk.tools.agent_tool import AgentTool  # type: ignore
+except Exception:  # pragma: no cover
+    class AgentTool:  # minimal fallback stub
+        def __init__(self, name: str, description: str, tool):
+            self.name = name
+            self.description = description
+            self.tool = tool
+
+# Sub-agents
 from .sub_agent.funny_nerd.agent import funny_nerd_agent
 from .sub_agent.news_analyst.agent import news_analyst_agent
 from .sub_agent.weather_forecaster.agent import weather_forecaster_agent
 from .sub_agent.joke_teller.agent import joke_teller_agent
-from tools.tools import get_current_time
 
+# Local tools
+from .tools.tools import get_current_time
+
+MODEL = os.getenv("GENAI_MODEL", "gemini-2.0-flash")
 
 root_agent = Agent(
-    model='gemini-2.0-flash',
-    name='manager',
-    description='Manager Agent',
-    instruction="""    You are a manager agent that can assist users with various tasks.
-    You can delegate tasks to sub-agents based on the user's request.
-    You can also use tools to perform tasks that do not require sub-agents.
-    If you don't know how to answer a question, you can delegate it to a sub-agent.
-    If you don't know how to use a tool, you can ask the user for more information.""",
+    model=MODEL,
+    name="manager",
+    description="Manager Agent",
+    instruction=(
+        "You are a manager agent that can assist users with various tasks.\n"
+        "You can delegate tasks to sub-agents based on the user's request.\n"
+        "You can also use tools to perform tasks that do not require sub-agents.\n"
+        "If you don't know how to answer a question, you can delegate it to a sub-agent.\n"
+        "If you don't know how to use a tool, ask the user for more information."
+    ),
     sub_agents={
         funny_nerd_agent,
         news_analyst_agent,
@@ -24,10 +57,9 @@ root_agent = Agent(
     },
     tools=[
         AgentTool(
-            name='get_current_time',
-            description='Get the current time in a specific format',
+            name="get_current_time",
+            description="Get the current time in a specific format",
             tool=get_current_time,
         ),
     ],
-    
 )
