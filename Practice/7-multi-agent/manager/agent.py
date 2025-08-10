@@ -11,15 +11,6 @@ except Exception:  # pragma: no cover
             for k, v in kwargs.items():
                 setattr(self, k, v)
 
-try:
-    from google.adk.tools.agent_tool import AgentTool  # type: ignore
-except Exception:  # pragma: no cover
-    class AgentTool:  # minimal fallback stub
-        def __init__(self, name: str, description: str, tool):
-            self.name = name
-            self.description = description
-            self.tool = tool
-
 # Sub-agents
 from .sub_agent.funny_nerd.agent import funny_nerd_agent
 from .sub_agent.news_analyst.agent import news_analyst_agent
