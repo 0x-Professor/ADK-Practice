@@ -7,7 +7,7 @@ Features
 
 Run (standalone UI)
 - uvicorn Agentic-Tools.e-commerce.agent:app --reload
-- Open http://127.0.0.1:8000
+- Open http://127.0.0.1:port
 
 Env vars
 - GOOGLE_CSE_ID, GOOGLE_SEARCH_API_KEY: enable web search tool.
