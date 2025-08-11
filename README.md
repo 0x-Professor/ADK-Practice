@@ -1,24 +1,24 @@
-# ADK Practice Monorepo
+# ADK Practice Monorepo (Education-Focused)
 
-Overview
-- E-commerce Assistant: product research and shopping advisor with structured results. Optional web search via google_search.
-- Brand SEO Orchestrator: multi-agent workflow for keyword finding, SERP analysis (Selenium), and competitor comparison.
-- YouTube Shorts Pipeline: scriptwriter, visualizer, and formatter agents.
-- Practice: learning projects showing basic agent patterns, tools, structured outputs, sessions/state, persistence, and multi-agent orchestration.
+This repository is a learning lab for building agentic apps with Google ADK. It contains small, focused examples and production-like toolchains you can study, run, and adapt.
 
-Quick start
-- Requirements: Python 3.13+, uv or pip, Chrome/Chromium for Selenium tasks (brand-SEO), credentials where applicable.
-- Install deps (recommended):
-  - uv sync
-- Run the unified FastAPI app (root):
-  - uvicorn main:app --reload
-  - Open http://127.0.0.1:8000 to use the simple UI. Choose mode: ecommerce or brand-seo.
+## Table of contents
+- [What’s here](#whats-here)
+- [Quick start (Windows)](#quick-start-windows)
+- [Environment (.env.example)](#environment-envexample)
+- [How to run](#how-to-run)
+  - [ADK Web](#adk-web)
+  - [Python scripts (Practice examples)](#python-scripts-practice-examples)
+  - [Optional: start local web UIs with uvicorn](#optional-start-local-web-uis-with-uvicorn)
+- [Projects overview](#projects-overview)
+- [Screenshots / GIFs (placeholders)](#screenshots--gifs-placeholders)
+- [Contributing](#contributing)
 
-Environment variables
-- GOOGLE_CSE_ID and GOOGLE_SEARCH_API_KEY: enable google_search tool (used by e-commerce and brand-SEO’s keyword finder). Optional; features degrade gracefully.
-- HEADLESS: "1" (default) runs Selenium headless for brand-SEO. Set 0 locally to see the browser.
-- UPSTREAM_VECTOR_URL: optional proxy target for Agentic-Tools/e-commerce/vector_service.py.
-- GENAI_MODEL: override default model (gemini-2.0-flash) for practice/manager sub-agents.
+## What’s here
+- **Agentic-Tools**
+  - **e-commerce**: product research and shopping advisor with structured outputs, plus a simple FastAPI UI.
+  - **brand-SEO**: orchestrated SEO workflow (keyword finder, Selenium SERP parser, comparison report).
+  - **youtube_shorts**: 3-stage Shorts pipeline (scriptwriter, visualizer, formatter) with file-based prompts.
 - OPENROUTER_API_KEY: needed for Practice/3-litellm_agent example.
 
 Project layout (high level)
