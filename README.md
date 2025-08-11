@@ -35,6 +35,7 @@ Running each component
 - Standalone (optional): Agentic-Tools/e-commerce/agent.py defines its own FastAPI app; run uvicorn Agentic-Tools.e-commerce.agent:app --reload.
 
 Notes
+- Agent discovery: the root UI expects ./e-commerce/agent.py and ./brand-SEO/agent.py in the repo root. If your agents live under Agentic-Tools/, run those apps directly or adapt main.py.
 - The UI tries to show HTML returned by the model (renderedContent) and also parses text for URLs.
 - The brand-SEO flow relies on Selenium (webdriver-manager installs ChromeDriver on demand). On CI/servers, keep HEADLESS=1.
 - Practice projects are intended as reference and learning aids; some are console programs.
