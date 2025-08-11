@@ -5,9 +5,11 @@ Features
 - Optional google_search tool for web-backed answers (no image URLs returned).
 - Built-in FastAPI UI for quick testing.
 
-Run (standalone UI)
-- uvicorn Agentic-Tools.e-commerce.agent:app --reload
-- Open http://127.0.0.1:port
+Run
+- With ADK Web: add the repo folder and open the e-commerce agent.
+- Windows (local UI):
+  - py -m uvicorn Agentic-Tools.e-commerce.agent:app --reload
+  - Then open http://127.0.0.1:8000
 
 Env vars
 - GOOGLE_CSE_ID, GOOGLE_SEARCH_API_KEY: enable web search tool.
@@ -20,4 +22,4 @@ API
 
 Notes
 - Products are expected in a fenced JSON block the model returns; the frontend parses and renders them.
-- For a unified root UI, see repository main.py. If not loading, run this module directly.
+- For a unified root UI, use the repository main.py or run this module directly.
